@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/stony-brook-crew", "destination": "/" },
+    { "source": "/stony-brook-crew/(.*)", "destination": "/" }
+  ]
+}
