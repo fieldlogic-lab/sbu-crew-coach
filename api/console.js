@@ -11,7 +11,7 @@ module.exports=async(req,res)=>{try{
  let body=req.body||await new Promise((resolve,reject)=>{let s='';req.on('data',c=>s+=c);req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch(e){reject(e)}})});
  if(body.action==='login'){if(/^\d{6}$/.test(body.code||'')&&body.code===process.env.CONSOLE_CODE&&process.env.CONSOLE_SESSION_SECRET){const v=`coach:${Date.now()+86400000}`;return json(res,200,{ok:true},{'set-cookie':[`${cookie}=${encodeURIComponent(v+'.'+sign(v))}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400`]})}return json(res,401,{error:'unauthorized'})}
  if(!authorized(req))return json(res,401,{error:'unauthorized'});
- if(body.action==='draft'||body.action==='publish'){const now=new Date().toISOString(),data={plan:body.plan,content:body.content,history:[{label:body.action==='publish'?'Published season':'Saved draft',at:now,kind:body.action},...(body.history||[])].slice(0,20)};await put(`coach-content/${body.action==='publish'?'published':'draft'}.json`,JSON.stringify(data),{access:'private',addRandomSuffix:true});return json(res,200,data)}
+ if(body.action==='draft'||body.action==='publish'){const now=new Date().toISOString(),data={plan:body.plan,seasons:body.seasons||{[body.plan?.season||'Fall 2026']:body.plan},content:body.content,controls:body.controls||{},history:[{label:body.action==='publish'?'Published season':'Saved draft',at:now,kind:body.action},...(body.history||[])].slice(0,20)};await put(`coach-content/${body.action==='publish'?'published':'draft'}.json`,JSON.stringify(data),{access:'private',addRandomSuffix:true});return json(res,200,data)}
  return json(res,400,{error:'unknown action'});
  }catch(e){return json(res,500,{error:'console unavailable'})}}
 
