@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#79001a"><title>Coach Console · Stony Brook Crew</title>
+  <link rel="stylesheet" href="/console.css">
+</head>
+<body>
+  <header class="topbar"><a class="back" href="/">← Coach App</a><div><p class="eyebrow">PRIVATE COACH CONSOLE</p><h1>Season control room</h1></div><div class="top-actions"><span id="save-state" class="save-state">Loading…</span><button id="save" class="button dark">Save draft</button><button id="publish" class="button red">Publish</button></div></header>
+  <main class="shell">
+    <section id="login" class="login-panel card" hidden><p class="eyebrow">COACH ACCESS</p><h2>Sign in to edit the season.</h2><p>Private planning tools for the Coach App and public RTPNY content.</p><form id="login-form"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button class="button red" type="submit">Sign in</button><p id="login-error" class="error"></p></form></section>
+    <section id="console" hidden>
+      <div class="intro"><div><p class="eyebrow">ONE SOURCE OF TRUTH</p><h2>Shape the season without touching the layout.</h2></div><p>Edit the content records here. The Coach App and public site remain separate experiences, but they can read the same published records.</p></div>
+      <div class="tabs"><button class="tab active" data-panel="season-panel">Season plan <span id="session-count"></span></button><button class="tab" data-panel="content-panel">Public content <span id="content-count"></span></button><button class="tab" data-panel="history-panel">Version history</button></div>
+      <section id="season-panel" class="panel"><div class="panel-heading"><div><p class="eyebrow">FALL 2026</p><h3>Training sessions</h3></div><button id="add-session" class="button outline">+ Add session</button></div><div id="sessions" class="session-list"></div></section>
+      <section id="content-panel" class="panel" hidden><div class="panel-heading"><div><p class="eyebrow">RTPNY.COM</p><h3>Public content records</h3></div><button id="add-content" class="button outline">+ Add record</button></div><div id="content-records" class="content-list"></div></section>
+      <section id="history-panel" class="panel" hidden><div class="panel-heading"><div><p class="eyebrow">SAFE EDITING</p><h3>Recent versions</h3></div></div><div id="history" class="history-list"><p class="muted">Versions appear after the first save.</p></div></section>
+    </section>
+  </main>
+  <template id="session-template"><article class="editor-card session-card"><div class="card-top"><span class="record-label">SESSION</span><button class="remove" type="button">Remove</button></div><div class="field-grid"><label>Date<input data-key="date" type="date"></label><label>Title<input data-key="title"></label><label>Training block<input data-key="block"></label></div><label>Intent<textarea data-key="intent"></textarea></label><label>Workout<textarea data-key="workout"></textarea></label><label>Coach cue<textarea data-key="cue"></textarea></label><label>Land plan<textarea data-key="land"></textarea></label><details class="custom-fields"><summary>Custom fields</summary><textarea data-key="custom" placeholder='{"equipment":"...","duration":"..."}'></textarea></details></article></template>
+  <script src="/console.js"></script>
+</body>
+</html>
+
