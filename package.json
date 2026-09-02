@@ -1,2 +1,9 @@
-{"private":true,"dependencies":{"@vercel/blob":"latest"}}
-
+{
+  "private": true,
+  "dependencies": {
+    "@vercel/blob": "latest"
+  },
+  "scripts": {
+    "qa": "node qa/smoke.mjs"
+  }
+}
