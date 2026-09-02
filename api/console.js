@@ -2,7 +2,7 @@ const { put, list, get } = require('@vercel/blob');
 const crypto=require('crypto');
 const cookie='coach_console_session';
 function sign(v){if(!process.env.CONSOLE_SESSION_SECRET)return '';return crypto.createHmac('sha256',process.env.CONSOLE_SESSION_SECRET).update(v).digest('hex')}
-function authorized(req){if(!process.env.CONSOLE_SESSION_SECRET||!process.env.CONSOLE_CODE)return false;const raw=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookie+'='));if(!raw)return false;const [v,s]=decodeURIComponent(raw.slice(cookie.length+1)).split('.');return v&&s===sign(v)&&Number(v.split(':').slice(1).join(':'))>Date.now()}
+function authorized(req){if(!process.env.CONSOLE_SESSION_SECRET||!process.env.CONSOLE_CODE)return false;if(req.headers['x-coach-code']===process.env.CONSOLE_CODE)return true;const raw=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookie+'='));if(!raw)return false;const [v,s]=decodeURIComponent(raw.slice(cookie.length+1)).split('.');return v&&s===sign(v)&&Number(v.split(':').slice(1).join(':'))>Date.now()}
 function json(res,status,body,headers={}){res.statusCode=status;Object.entries({'content-type':'application/json',...headers}).forEach(([k,v])=>res.setHeader(k,v));res.end(JSON.stringify(body))}
 async function latest(prefix){const x=await list({prefix});return x.blobs?.sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt))[0]}
 async function readBlob(prefix){const b=await latest(prefix);if(!b)return null;const result=await get(b.url);if(!result||result.statusCode!==200)return null;return new Response(result.stream).json()}
