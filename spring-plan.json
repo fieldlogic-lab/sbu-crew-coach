@@ -35,7 +35,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-02-05",
@@ -48,7 +55,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-02-10",
@@ -61,7 +75,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-02-12",
@@ -74,7 +95,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-02-17",
@@ -87,7 +115,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "flexible",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-02-19",
@@ -100,7 +135,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "flexible",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-02-24",
@@ -113,7 +155,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "flexible",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-02-26",
@@ -126,7 +175,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "flexible",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-03-03",
@@ -139,7 +195,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "flexible",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-03-05",
@@ -152,7 +215,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "flexible",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-03-10",
@@ -165,7 +235,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-03-12",
@@ -178,7 +255,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-03-24",
@@ -191,7 +275,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-03-26",
@@ -204,7 +295,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-03-31",
@@ -217,7 +315,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-02",
@@ -230,7 +335,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-07",
@@ -243,7 +355,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-09",
@@ -256,7 +375,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-14",
@@ -269,7 +395,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-16",
@@ -282,7 +415,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-21",
@@ -295,7 +435,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-23",
@@ -308,7 +455,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-28",
@@ -321,7 +475,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-04-30",
@@ -334,7 +495,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "water",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-05-05",
@@ -347,7 +515,14 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     },
     {
       "date": "2027-05-07",
@@ -360,8 +535,21 @@
       "custom": {
         "semester": "Spring 2027",
         "reviewStatus": "Template — confirm against annual schedule"
-      }
+      },
+      "sessionType": "land",
+      "releaseTimes": {
+        "water": "05:00",
+        "land": "06:01"
+      },
+      "releaseTimezone": "America/New_York",
+      "status": "draft"
     }
-  ]
+  ],
+  "practiceDecision": {
+    "waterRelease": "05:00",
+    "landRelease": "06:01",
+    "timezone": "America/New_York",
+    "authority": "Coach decision overrides forecast"
+  },
+  "schemaVersion": 2
 }
-
