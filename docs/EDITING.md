@@ -32,15 +32,17 @@ js/config.js           safe display configuration and defaults
 js/weather.js          external live-conditions adapter
 js/team-ops.js         attendance, eligibility, and exception domain
 js/views/team.js       Team and Lineups screen renderers
+js/views/practice.js   Today and Tomorrow screen renderers
+js/views/planning.js   Season and Plan screen renderers
 api/console.js         protected record, auth, and persistence
 console.js             protected editing-console interface
 ```
 
 ## Next extraction order
 
-1. `js/views/practice.js` — Today and Tomorrow renderers
-2. `js/views/planning.js` — Season and Plan renderers
-3. `js/session-plan.js` — reviewed planning-snapshot normalization
-4. `js/dom.js` — escaping, links, local coach notes
+1. `js/session-plan.js` — reviewed planning-snapshot normalization
+2. `js/dom.js` — escaping, links, local coach notes
+3. `js/views/resources.js` — Resources screen renderer
+4. `js/app-controller.js` — route selection and event binding
 
 Each extraction must preserve visible behavior and be deployed separately. That makes a regression easy to locate and reverse.
