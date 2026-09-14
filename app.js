@@ -46,12 +46,17 @@ function mergeTeamOps(base,next){
 }
 function normalize(items){return (items||[]).map(s=>[s.date,s.title,(s.workout||'')+' '+(s.land||''),s.intent,s.sessionType||'land',s.releaseTimes||{water:'05:00',land:'06:01'},s])}
 function hydratePlans(){
-  if(central?.seasons){
-    Object.keys(central.seasons).forEach(k=>seasonPlans[k]=normalize(central.seasons[k]?.sessions));
-    plans=seasonPlans['Fall 2026']||Object.values(seasonPlans)[0]||[];
-  }else seasonPlans['Fall 2026']=plans;
+  // The phone dashboard renders only a trusted cached snapshot from the private
+  // planning source. Repository-era sessions are intentionally not used as live
+  // training data: the Drive workbook is the editing source of truth.
   const driveSessions=normalize(teamOps.trainingPlan?.sessions);
-  if(driveSessions.length){plans=driveSessions;seasonPlans[selectedSeason]=driveSessions}
+  if(driveSessions.length){
+    plans=driveSessions;
+    seasonPlans[selectedSeason]=driveSessions;
+    return;
+  }
+  plans=[];
+  seasonPlans={};
 }
 hydratePlans();
 
@@ -129,17 +134,19 @@ function renderLineups(){
 }
 function renderSeason(){
   const arc=teamOps.seasonArc?.seasons||[];
-  return '<section class="card"><div class="ey">SEASON ARC</div><div class="title">'+esc(selectedSeason)+'</div><p>Season/annual planning stays in Drive with year-specific copies and historical coach notes.</p>'+sourceMeta('seasonTrainingArc')+sourceLink('seasonTrainingArc','Open Season Arc')+'</section>'+(arc.length?arc.map(x=>'<section class="card"><div class="ey">'+esc(x.year||x.season||'Season')+'</div><div class="title" style="font-size:20px">'+esc(x.title||'Training arc')+'</div><p>'+esc(x.summary||'No summary entered.')+'</p></section>').join(''):plans.map(x=>'<section class="card"><div class="ey">'+esc(x[0])+'</div><div class="title" style="font-size:20px">'+esc(x[1])+'</div><p class="small">'+esc(x[3])+'</p></section>').join(''));
+  const snapshot=plans.length?plans.map(x=>'<section class="card"><div class="ey">'+esc(x[0])+'</div><div class="title" style="font-size:20px">'+esc(x[1])+'</div><p class="small">'+esc(x[3])+'</p></section>').join(''):'<section class="card"><div class="ey">WAITING FOR PLAN SNAPSHOT</div><div class="title">No daily plan is synced yet.</div><p>Open the private planning workbook to edit. The dashboard will use a reviewed snapshot after the source connection is enabled.</p>'+sourceLink('dailyTrainingPlan','Open Planning Workbook')+'</section>';
+  return '<section class="card"><div class="ey">SEASON ARC</div><div class="title">'+esc(selectedSeason)+'</div><p>Season/annual planning stays in Drive with year-specific copies and historical coach notes.</p>'+sourceMeta('seasonTrainingArc')+sourceLink('seasonTrainingArc','Open Season Arc')+'</section>'+(arc.length?arc.map(x=>'<section class="card"><div class="ey">'+esc(x.year||x.season||'Season')+'</div><div class="title" style="font-size:20px">'+esc(x.title||'Training arc')+'</div><p>'+esc(x.summary||'No summary entered.')+'</p></section>').join(''):snapshot);
 }
 function renderPlan(){
-  return '<section class="card"><div class="ey">DAILY TRAINING PLAN</div><div class="title">Plan</div><p>Drive can remain the editing surface while the app renders the practice view.</p>'+sourceMeta('dailyTrainingPlan')+sourceLink('dailyTrainingPlan','Open Daily Training Plan')+'</section><section class="card">'+plans.map(x=>'<details class="section"><summary><b>'+esc(x[0])+' · '+esc(x[1])+'</b></summary><p>'+esc(x[2])+'</p><small>'+esc(x[3])+'</small></details>').join('')+'</section>';
+  const sessions=plans.length?plans.map(x=>'<details class="section"><summary><b>'+esc(x[0])+' · '+esc(x[1])+'</b></summary><p>'+esc(x[2])+'</p><small>'+esc(x[3])+'</small></details>').join(''):'<p class="small">No reviewed planning snapshot is available in the dashboard yet. The Drive workbook is still available from the source link above.</p>';
+  return '<section class="card"><div class="ey">DAILY TRAINING PLAN</div><div class="title">Plan</div><p>Drive is the editing surface; the dashboard only renders a reviewed private snapshot.</p>'+sourceMeta('dailyTrainingPlan')+sourceLink('dailyTrainingPlan','Open Daily Training Plan')+'</section><section class="card">'+sessions+'</section>';
 }
 function renderResources(){
   return '<section class="card"><div class="ey">TEAM SOURCES</div><div class="title">Resources</div><p>Configured source shortcuts plus curated public guidance.</p>'+['attendance','semesterSchedule','dailyTrainingPlan','seasonTrainingArc'].map(k=>'<div class="resource source-resource"><strong>'+esc(teamOps.sources?.[k]?.title||k)+'</strong><span>'+esc(teamOps.sources?.[k]?.status==='connected'?'Configured':'Not configured')+'</span>'+sourceLink(k,'Open')+'</div>').join('')+manifest.resources.map(x=>'<a class="resource" href="'+escAttr(resourceHref(x))+'" target="_blank" rel="noopener"><i>↗</i><strong>'+esc(x.title)+'</strong><span>'+esc(x.summary)+'</span></a>').join('')+'</section>';
 }
 function render(v=active){
   active=v;
-  const seasonPicker=(v==='season'||v==='plan')?'<div class="section"><label for="season-choice"><h3>SEASON</h3></label><select id="season-choice" class="season-choice">'+Object.keys(seasonPlans).map(k=>'<option>'+esc(k)+'</option>').join('')+'</select></div>':'';
+  const seasonPicker=(v==='season'||v==='plan')&&Object.keys(seasonPlans).length?'<div class="section"><label for="season-choice"><h3>SEASON</h3></label><select id="season-choice" class="season-choice">'+Object.keys(seasonPlans).map(k=>'<option>'+esc(k)+'</option>').join('')+'</select></div>':'';
   const today=current(),next=nextScheduled(),i=today?plans.findIndex(x=>x[0]===today[0]):-1,p=v==='tomorrow'?plans[i>=0?Math.min(i+1,plans.length-1):0]:today;
   const emptyToday='<section class="card"><div class="ey">NO ORGANIZED PRACTICE</div><div class="title">No scheduled workout today.</div><p>'+(next?'Next scheduled: '+esc(next[0])+' · '+esc(next[1])+'.':'Check the annual schedule or coach notice for the next session.')+'</p></section>';
   const h=v==='today'&&!p?teamStatusCard()+emptyToday:v==='today'?teamStatusCard()+card(p):v==='tomorrow'?card(p):v==='team'?renderTeam():v==='lineups'?renderLineups():v==='season'?renderSeason():v==='plan'?renderPlan():renderResources();
