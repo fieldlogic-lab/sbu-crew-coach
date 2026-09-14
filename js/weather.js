@@ -15,7 +15,37 @@ const rounded = (measurement, factor = 1) =>
 
 const display = (value, unit) => value == null ? '—' : value + unit;
 
+const MARINE_ZONE = 'ANZ335';
+const MARINE_URL = 'https://marine.weather.gov/MapClick.php?zoneid=' + MARINE_ZONE;
+
+async function getMarineForecast() {
+  const response = await fetch(
+    'https://api.weather.gov/zones/forecast/' + MARINE_ZONE + '/forecast',
+    { headers: { Accept: 'application/geo+json' } },
+  );
+  if (!response.ok) throw new Error('NWS marine forecast unavailable');
+
+  const data = (await response.json()).properties || {};
+  const periods = (data.periods || [])
+    .slice(0, 2)
+    .map(period => ({
+      name: period.name || 'Forecast',
+      text: period.detailedForecast || period.forecast || '',
+    }))
+    .filter(period => period.text);
+
+  if (!periods.length) throw new Error('NWS marine forecast empty');
+
+  return {
+    eyebrow: 'PORT JEFFERSON MARINE · ' + MARINE_ZONE,
+    periods,
+    sourceLabel: 'NOAA marine forecast',
+    sourceHref: MARINE_URL,
+  };
+}
+
 export async function getLiveConditions() {
+  let conditions;
   try {
     const observation = await fetch(
       'https://api.weather.gov/stations/KISP/observations/latest',
@@ -26,7 +56,7 @@ export async function getLiveConditions() {
     });
 
     const data = observation.properties || {};
-    return {
+    conditions = {
       kind: 'observation',
       eyebrow: 'LIVE OBSERVATION · KISP (ISLIP)',
       status: data.timestamp
@@ -40,11 +70,19 @@ export async function getLiveConditions() {
         { value: data.temperature?.value == null ? '—' : Math.round(data.temperature.value * 9 / 5 + 32) + '°', label: 'AIR' },
         { value: compass(data.windDirection?.value), label: 'DIRECTION' },
       ],
-      disclaimer: 'Observed at the listed station; harbor conditions can differ. Final release remains a coach decision.',
+      disclaimer: 'Observed at KISP; harbor conditions can differ. Final release remains a coach decision.',
     };
   } catch {
-    return getModelFallback();
+    conditions = await getModelFallback();
   }
+
+  try {
+    conditions.marine = await getMarineForecast();
+  } catch {
+    // Keep the observation usable if the marine-zone feed is temporarily down.
+  }
+
+  return conditions;
 }
 
 async function getModelFallback() {
@@ -60,8 +98,8 @@ async function getModelFallback() {
     kind: 'model',
     eyebrow: 'CURRENT MODEL SNAPSHOT · ' + name.toUpperCase(),
     status: 'Fallback only · not an observation',
-    sourceLabel: 'Check Port Jefferson marine station',
-    sourceHref: 'https://www.ndbc.noaa.gov/station_page.php?station=PTJN6',
+    sourceLabel: 'Open Port Jefferson marine forecast',
+    sourceHref: MARINE_URL,
     metrics: [
       { value: Math.round(current.wind_speed_10m) + ' kt', label: 'WIND' },
       { value: Math.round(current.wind_gusts_10m) + ' kt', label: 'GUST' },
