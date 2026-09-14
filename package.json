@@ -4,6 +4,6 @@
     "@vercel/blob": "latest"
   },
   "scripts": {
-    "qa": "node qa/smoke.mjs"
+    "qa": "node qa/team-ops.mjs && node qa/smoke.mjs"
   }
 }
