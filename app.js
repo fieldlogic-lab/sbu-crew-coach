@@ -1,3 +1,6 @@
+import { APP, DEFAULT_TEAM_OPS, RESOURCE_FALLBACKS } from '/js/config.js';
+import { getLiveConditions } from '/js/weather.js';
+
 async function boot(){
   const gate=document.getElementById('access-gate');
   const view=document.getElementById('view');
@@ -21,21 +24,14 @@ async function boot(){
 }
 
 boot().then(()=>{
-const PUBLIC='https://www.rtpny.com';
+const PUBLIC=APP.publicSite;
 const MANIFEST=PUBLIC+'/content.json';
 const central=window.__coachData||{};
-const fallback=[['New Rower & Athlete Guide','First days, preparation, commands, expectations','athletes'],['Coaching Resources','Sequence, posture, recovery, connection, benchmarks','coaching'],['Regatta Hub','Race-day, travel, equipment, and family logistics','regattas'],['Parent Guide','What to expect, costs, forms, and support','parents'],['Safety & Equipment','Team movement, commands, fleet care, and readiness','safety'],['About the Program','Recruiting, alumni, leadership, and support','about']];
-const defaultTeamOps={
-  sources:{attendance:{title:'Attendance',kind:'attendance'},semesterSchedule:{title:'Semester Schedule',kind:'semesterSchedule'},dailyTrainingPlan:{title:'Daily Training Plan',kind:'dailyTrainingPlan'},seasonTrainingArc:{title:'Annual / Season Training Arc',kind:'seasonTrainingArc'}},
-  eligibilityRules:{novicePracticeMinimum:11,attendanceWarningMisses:2,attendanceCriticalMisses:3,formsRequired:true,safetyRequired:true},
-  attendance:{athletes:[],practiceDates:[]},
-  trainingPlan:{sessions:[]},
-  seasonArc:{seasons:[]},
-  lineups:{drafts:[]}
-};
+const fallback=RESOURCE_FALLBACKS;
+const defaultTeamOps=DEFAULT_TEAM_OPS;
 let teamOps=mergeTeamOps(defaultTeamOps,central.teamOps||{});
 let plans=[];
-let selectedSeason='Fall 2026';
+let selectedSeason=APP.defaultSeason;
 let seasonPlans={};
 let manifest={resources:fallback.map(x=>({title:x[0],summary:x[1],path:'#'+x[2]}))};
 let active='today';
@@ -161,34 +157,24 @@ function render(v=active){
   document.querySelectorAll('#view .weather').forEach(e=>e.remove());
   if(v==='today'||v==='tomorrow')weather(v,weatherRequest);
 }
-async function weather(v,request){
-  const host=document.getElementById('view');
-  const addCard=(eyebrow,status,metrics,sourceHref,sourceLabel)=>{
-    if(request!==weatherRequest||active!==v)return;
-    document.querySelectorAll('#view .weather').forEach(x=>x.remove());
-    const e=document.createElement('section');
-    e.className='card weather';
-    e.innerHTML='<div class="ey">'+esc(eyebrow)+'</div><div class="status">'+esc(status)+'</div><div class="metrics">'+metrics+'</div><p class="small">Observed at the listed station; harbor conditions can differ. Final release remains a coach decision.</p><a class="source-link" href="'+escAttr(sourceHref)+'" target="_blank" rel="noopener">'+esc(sourceLabel)+'</a>';
-    host.prepend(e);
-  };
-  try{
-    // KISP is the nearest dependable live FAA/NWS observation. Port Jefferson's
-    // NDBC station currently has no recent reports, so we identify the station
-    // instead of passing a forecast or a distant buoy off as harbor conditions.
-    const obs=await fetch('https://api.weather.gov/stations/KISP/observations/latest',{headers:{Accept:'application/geo+json'}}).then(r=>{if(!r.ok)throw Error();return r.json()});
-    if(request!==weatherRequest||active!==v)return;
-    const p=obs.properties||{},value=(x,unit)=>x?.value==null?'—':Math.round(x.value*unit);
-    const wind=value(p.windSpeed,0.621371),gust=value(p.windGust,0.621371),temp=value(p.temperature,9/5)+32;
-    const direction=p.windDirection?.value==null?'—':['N','NE','E','SE','S','SW','W','NW'][Math.round(p.windDirection.value/45)%8];
-    const observed=p.timestamp?new Date(p.timestamp).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'latest';
-    addCard('LIVE OBSERVATION · KISP (ISLIP)',observed+' · FAA / NWS', '<div class="metric"><b>'+wind+' mph</b><span>WIND</span></div><div class="metric"><b>'+gust+' mph</b><span>GUST</span></div><div class="metric"><b>'+temp+'°</b><span>AIR</span></div><div class="metric"><b>'+direction+'</b><span>DIRECTION</span></div>','https://forecast.weather.gov/MapClick.php?lat=40.9465&lon=-73.0693','Open NOAA current conditions');
-  }catch{
-    try{
-      const q=(await fetch('https://api.open-meteo.com/v1/forecast?latitude=40.9465&longitude=-73.0693&current=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&temperature_unit=fahrenheit&timezone=America%2FNew_York').then(r=>r.json())).current;
-      if(request!==weatherRequest||active!==v)return;
-      const d=['N','NE','E','SE','S','SW','W','NW'][Math.round(q.wind_direction_10m/45)%8];
-      addCard('CURRENT MODEL SNAPSHOT · PORT JEFFERSON HARBOR','Fallback only · not an observation','<div class="metric"><b>'+Math.round(q.wind_speed_10m)+' kt</b><span>WIND</span></div><div class="metric"><b>'+Math.round(q.wind_gusts_10m)+' kt</b><span>GUST</span></div><div class="metric"><b>'+Math.round(q.temperature_2m)+'°</b><span>AIR</span></div><div class="metric"><b>'+d+'</b><span>DIRECTION</span></div>','https://www.ndbc.noaa.gov/station_page.php?station=PTJN6','Check Port Jefferson marine station');
-    }catch{}
+async function weather(v, request) {
+  try {
+    const conditions = await getLiveConditions();
+    if (request !== weatherRequest || active !== v) return;
+
+    const card = document.createElement('section');
+    card.className = 'card weather';
+    card.innerHTML = '<div class="ey">' + esc(conditions.eyebrow) + '</div>'
+      + '<div class="status">' + esc(conditions.status) + '</div>'
+      + '<div class="metrics">' + conditions.metrics.map(metric =>
+        '<div class="metric"><b>' + esc(metric.value) + '</b><span>' + esc(metric.label) + '</span></div>'
+      ).join('') + '</div>'
+      + '<p class="small">' + esc(conditions.disclaimer) + '</p>'
+      + '<a class="source-link" href="' + escAttr(conditions.sourceHref) + '" target="_blank" rel="noopener">'
+      + esc(conditions.sourceLabel) + '</a>';
+    document.getElementById('view').prepend(card);
+  } catch {
+    // No card is safer than a stale or invented weather condition.
   }
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>render(b.dataset.v));
