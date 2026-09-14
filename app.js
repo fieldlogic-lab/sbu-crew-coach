@@ -1,3 +1,6 @@
+import { APP, DEFAULT_TEAM_OPS, RESOURCE_FALLBACKS } from '/js/config.js';
+import { getLiveConditions } from '/js/weather.js';
+
 async function boot(){
   const gate=document.getElementById('access-gate');
   const view=document.getElementById('view');
@@ -19,9 +22,6 @@ async function boot(){
   nav.hidden=false;
   window.__coachData=await access.json();
 }
-
-import { APP, DEFAULT_TEAM_OPS, RESOURCE_FALLBACKS } from '/js/config.js';
-import { getLiveConditions } from '/js/weather.js';
 
 boot().then(()=>{
 const PUBLIC=APP.publicSite;
