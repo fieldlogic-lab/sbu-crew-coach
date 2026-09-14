@@ -2,6 +2,7 @@ import { APP, DEFAULT_TEAM_OPS, RESOURCE_FALLBACKS } from '/js/config.js';
 import { getLiveConditions } from '/js/weather.js';
 import { athletesFrom, attendanceWarningFor, eligibilityFor, mergeTeamOps, scheduledPracticeDates as sourcePracticeDates, teamSummaryFor } from '/js/team-ops.js';
 import { renderLineupsView, renderTeamStatus, renderTeamView } from '/js/views/team.js';
+import { renderNoPractice, renderSessionCard } from '/js/views/practice.js';
 
 async function boot(){
   const gate=document.getElementById('access-gate');
@@ -76,10 +77,8 @@ function attendanceWarning(athlete){ return attendanceWarningFor(athlete, teamOp
 function athletes(){ return athletesFrom(teamOps) }
 function teamSummary(){ return teamSummaryFor(teamOps, plans, nyDate()) }
 function teamStatusCard(){ return renderTeamStatus(teamSummary()) }
-function card(p){
-  if(!p)return '<section class="card"><div class="ey">NO SESSION DATA</div><div class="title">Training plan not available.</div><p>Connect the Daily Training Plan source or publish sessions from the coach console.</p></section>';
-  const message=planField(p,'todayMessage',p[3]),novice=planField(p,'novicePlan'),varsity=planField(p,'varsityPlan'),fallbackPlan=planField(p,'landFallback',p[6]?.land),cues=planField(p,'coachingCues',p[6]?.cue);
-  return '<section class="card"><div class="ey">'+esc(p[0])+'</div><div class="title">'+esc(p[1])+'</div><span class="pill">'+esc(p[4]||'land').toUpperCase()+'</span>'+(sourceReady('dailyTrainingPlan')?'<div class="inline-source">'+sourceLink('dailyTrainingPlan','Open Daily Training Plan')+'</div>':'')+'<div class="section"><h3>TODAY’S MESSAGE</h3><p>'+esc(message||'No message entered yet.')+'</p></div><div class="section split"><div><h3>NOVICE PLAN</h3><p>'+esc(novice||'Not specified.')+'</p></div><div><h3>VARSITY PLAN</h3><p>'+esc(varsity||'Not specified.')+'</p></div></div><div class="section"><h3>WORKOUT</h3><p>'+esc(p[2]||'Not specified.')+'</p></div><div class="section"><h3>LAND FALLBACK</h3><p>'+esc(fallbackPlan||'Not specified.')+'</p></div><div class="section"><h3>TECHNICAL FOCUS</h3><p>'+esc(planField(p,'technicalFocus',p[3])||'Not specified.')+'</p></div><div class="section"><h3>COACHING CUES</h3><p>'+esc(cues||'Not specified.')+'</p></div><div class="section split"><div><h3>SUCCESS</h3><p>'+esc(planField(p,'successCriteria')||'Not specified.')+'</p></div><div><h3>INTENSITY</h3><p>'+esc(planField(p,'intensity')||'Not specified.')+'</p></div></div><div class="section"><h3>COACH NOTES</h3><textarea class="note" id="notes-'+escAttr(p[0])+'" placeholder="Capture the adjustment you want to carry forward…">'+esc(notes(p[0]))+'</textarea><button class="save" id="save-'+escAttr(p[0])+'">Save note</button></div></section>';
+function card(session){
+  return renderSessionCard(session, { esc, escAttr, planField, sourceReady, sourceLink, notes });
 }
 function renderTeam(){
   return renderTeamView({
@@ -111,7 +110,7 @@ function render(v=active){
   active=v;
   const seasonPicker=(v==='season'||v==='plan')&&Object.keys(seasonPlans).length?'<div class="section"><label for="season-choice"><h3>SEASON</h3></label><select id="season-choice" class="season-choice">'+Object.keys(seasonPlans).map(k=>'<option>'+esc(k)+'</option>').join('')+'</select></div>':'';
   const today=current(),next=nextScheduled(),i=today?plans.findIndex(x=>x[0]===today[0]):-1,p=v==='tomorrow'?plans[i>=0?Math.min(i+1,plans.length-1):0]:today;
-  const emptyToday='<section class="card"><div class="ey">NO ORGANIZED PRACTICE</div><div class="title">No scheduled workout today.</div><p>'+(next?'Next scheduled: '+esc(next[0])+' · '+esc(next[1])+'.':'Check the annual schedule or coach notice for the next session.')+'</p></section>';
+  const emptyToday=renderNoPractice({ next, esc });
   const h=v==='today'&&!p?teamStatusCard()+emptyToday:v==='today'?teamStatusCard()+card(p):v==='tomorrow'?card(p):v==='team'?renderTeam():v==='lineups'?renderLineups():v==='season'?renderSeason():v==='plan'?renderPlan():renderResources();
   document.getElementById('view').innerHTML=seasonPicker+h;
   const seasonChoice=document.getElementById('season-choice');
