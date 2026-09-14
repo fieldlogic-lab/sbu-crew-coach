@@ -27,3 +27,11 @@
 .weather .metric:nth-child(1) span,.weather .metric:nth-child(2) span{color:#fff}
 .weather .source-link{background:rgba(121,0,26,.92);color:#fff;border:0}
 .weather.go,.weather.land{background:#a9823e;color:#fff}
+.weather .marine-forecast{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.26)}
+.weather .marine-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:10px;font-weight:900;letter-spacing:.08em;color:rgba(255,255,255,.92)}
+.weather .marine-head a{color:#fff;text-decoration:none;font-size:10px;letter-spacing:0;white-space:nowrap}
+.weather .marine-periods{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.weather .marine-period{background:rgba(39,31,18,.16);border:1px solid rgba(255,255,255,.11);border-radius:11px;padding:10px}
+.weather .marine-period strong{display:block;font-size:12px;margin-bottom:4px;color:#fff}
+.weather .marine-period span{display:block;font-size:11px;line-height:1.35;color:rgba(255,255,255,.84)}
+@media(max-width:520px){.weather .marine-periods{grid-template-columns:1fr}.weather .marine-period{padding:9px 10px}}
