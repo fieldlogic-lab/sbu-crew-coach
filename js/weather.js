@@ -11,7 +11,9 @@ const compass = degrees => degrees == null
   : ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(degrees / 45) % 8];
 
 const rounded = (measurement, factor = 1) =>
-  measurement?.value == null ? '—' : Math.round(measurement.value * factor);
+  measurement?.value == null ? null : Math.round(measurement.value * factor);
+
+const display = (value, unit) => value == null ? '—' : value + unit;
 
 export async function getLiveConditions() {
   try {
@@ -33,9 +35,9 @@ export async function getLiveConditions() {
       sourceLabel: 'Open NOAA current conditions',
       sourceHref: 'https://forecast.weather.gov/MapClick.php?lat=40.9465&lon=-73.0693',
       metrics: [
-        { value: rounded(data.windSpeed, 0.621371) + ' mph', label: 'WIND' },
-        { value: rounded(data.windGust, 0.621371) + ' mph', label: 'GUST' },
-        { value: (rounded(data.temperature, 9 / 5) + 32) + '°', label: 'AIR' },
+        { value: display(rounded(data.windSpeed, 0.621371), ' mph'), label: 'WIND' },
+        { value: display(rounded(data.windGust, 0.621371), ' mph'), label: 'GUST' },
+        { value: data.temperature?.value == null ? '—' : Math.round(data.temperature.value * 9 / 5 + 32) + '°', label: 'AIR' },
         { value: compass(data.windDirection?.value), label: 'DIRECTION' },
       ],
       disclaimer: 'Observed at the listed station; harbor conditions can differ. Final release remains a coach decision.',
