@@ -8,6 +8,8 @@ This app is intentionally organized so that a small request should change one sm
 | --- | --- | --- |
 | A label, default season, source label, or public resource wording | `js/config.js` | `app.js`, API, storage |
 | Live conditions source, units, timestamps, fallback behavior | `js/weather.js` | training, team, login, navigation |
+| Attendance normalization, eligibility, practice-count and absence rules | `js/team-ops.js` | screens, login, Drive source URLs | 
+| Team and lineup layout/copy | `js/views/team.js` | eligibility rules, source syncing |
 | A screen’s layout or wording | the matching renderer block in `app.js` | API, source adapters |
 | Coach login, protected session, record read/write | `api/console.js` | client screens unless the API contract changes |
 | Console editing fields | `console.js` / `console.html` | public app unless a new saved field is needed |
@@ -28,14 +30,16 @@ This app is intentionally organized so that a small request should change one sm
 app.js                 controller and page composition
 js/config.js           safe display configuration and defaults
 js/weather.js          external live-conditions adapter
+js/team-ops.js         attendance, eligibility, and exception domain
+js/views/team.js       Team and Lineups screen renderers
 api/console.js         protected record, auth, and persistence
 console.js             protected editing-console interface
 ```
 
 ## Next extraction order
 
-1. `js/team-ops.js` — attendance normalization and eligibility rules
-2. `js/views/` — Today, Team, Lineups, Season, Plan, Resources renderers
+1. `js/views/practice.js` — Today and Tomorrow renderers
+2. `js/views/planning.js` — Season and Plan renderers
 3. `js/session-plan.js` — reviewed planning-snapshot normalization
 4. `js/dom.js` — escaping, links, local coach notes
 
