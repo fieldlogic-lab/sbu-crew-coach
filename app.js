@@ -133,6 +133,12 @@ async function weather(v, request) {
     const conditions = await getLiveConditions();
     if (request !== weatherRequest || active !== v) return;
 
+    const marine = conditions.marine?.periods?.length
+      ? '<div class="marine-forecast"><div class="marine-head"><span>' + esc(conditions.marine.eyebrow) + '</span><a href="' + escAttr(conditions.marine.sourceHref) + '" target="_blank" rel="noopener">NOAA ↗</a></div><div class="marine-periods">'
+        + conditions.marine.periods.map(period => '<div class="marine-period"><strong>' + esc(period.name) + '</strong><span>' + esc(period.text) + '</span></div>').join('')
+        + '</div></div>'
+      : '';
+
     const card = document.createElement('section');
     card.className = 'card weather';
     card.innerHTML = '<div class="ey">' + esc(conditions.eyebrow) + '</div>'
@@ -140,6 +146,7 @@ async function weather(v, request) {
       + '<div class="metrics">' + conditions.metrics.map(metric =>
         '<div class="metric"><b>' + esc(metric.value) + '</b><span>' + esc(metric.label) + '</span></div>'
       ).join('') + '</div>'
+      + marine
       + '<p class="small">' + esc(conditions.disclaimer) + '</p>'
       + '<a class="source-link" href="' + escAttr(conditions.sourceHref) + '" target="_blank" rel="noopener">'
       + esc(conditions.sourceLabel) + '</a>';
