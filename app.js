@@ -116,7 +116,7 @@ function render(v=active){
   const seasonPicker=(v==='season'||v==='plan')&&Object.keys(seasonPlans).length?'<div class="section"><label for="season-choice"><h3>SEASON</h3></label><select id="season-choice" class="season-choice">'+Object.keys(seasonPlans).map(k=>'<option>'+esc(k)+'</option>').join('')+'</select></div>':'';
   const today=current(),next=nextScheduled(),i=today?plans.findIndex(x=>x[0]===today[0]):-1,p=v==='tomorrow'?plans[i>=0?Math.min(i+1,plans.length-1):0]:today;
   const emptyToday=renderNoPractice({ next, esc });
-  const h=v==='today'&&!p?teamStatusCard()+emptyToday:v==='today'?teamStatusCard()+card(p):v==='tomorrow'?card(p):v==='team'?renderTeam():v==='lineups'?renderLineups():v==='season'?renderSeason():v==='plan'?renderPlan():renderResources();
+  const h=v==='today'&&!p?emptyToday+teamStatusCard():v==='today'?card(p)+teamStatusCard():v==='tomorrow'?card(p):v==='team'?renderTeam():v==='lineups'?renderLineups():v==='season'?renderSeason():v==='plan'?renderPlan():renderResources();
   document.getElementById('view').innerHTML=seasonPicker+h;
   const seasonChoice=document.getElementById('season-choice');
   if(seasonChoice){seasonChoice.value=selectedSeason;seasonChoice.onchange=()=>{selectedSeason=seasonChoice.value;plans=seasonPlans[selectedSeason]||plans;render(active)}}
