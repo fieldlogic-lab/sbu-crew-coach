@@ -3,6 +3,7 @@ import { getLiveConditions } from '/js/weather.js';
 import { athletesFrom, attendanceWarningFor, eligibilityFor, mergeTeamOps, scheduledPracticeDates as sourcePracticeDates, teamSummaryFor } from '/js/team-ops.js';
 import { renderLineupsView, renderTeamStatus, renderTeamView } from '/js/views/team.js';
 import { renderNoPractice, renderSessionCard } from '/js/views/practice.js';
+import { renderPlanView, renderSeasonView } from '/js/views/planning.js';
 
 async function boot(){
   const gate=document.getElementById('access-gate');
@@ -95,13 +96,17 @@ function renderLineups(){
   return renderLineupsView({ drafts: teamOps.lineups?.drafts || [], esc });
 }
 function renderSeason(){
-  const arc=teamOps.seasonArc?.seasons||[];
-  const snapshot=plans.length?plans.map(x=>'<section class="card"><div class="ey">'+esc(x[0])+'</div><div class="title" style="font-size:20px">'+esc(x[1])+'</div><p class="small">'+esc(x[3])+'</p></section>').join(''):'<section class="card"><div class="ey">WAITING FOR PLAN SNAPSHOT</div><div class="title">No daily plan is synced yet.</div><p>Open the private planning workbook to edit. The dashboard will use a reviewed snapshot after the source connection is enabled.</p>'+sourceLink('dailyTrainingPlan','Open Planning Workbook')+'</section>';
-  return '<section class="card"><div class="ey">SEASON ARC</div><div class="title">'+esc(selectedSeason)+'</div><p>Season/annual planning stays in Drive with year-specific copies and historical coach notes.</p>'+sourceMeta('seasonTrainingArc')+sourceLink('seasonTrainingArc','Open Season Arc')+'</section>'+(arc.length?arc.map(x=>'<section class="card"><div class="ey">'+esc(x.year||x.season||'Season')+'</div><div class="title" style="font-size:20px">'+esc(x.title||'Training arc')+'</div><p>'+esc(x.summary||'No summary entered.')+'</p></section>').join(''):snapshot);
+  return renderSeasonView({
+    arc: teamOps.seasonArc?.seasons || [],
+    selectedSeason,
+    plans,
+    esc,
+    sourceMeta,
+    sourceLink,
+  });
 }
 function renderPlan(){
-  const sessions=plans.length?plans.map(x=>'<details class="section"><summary><b>'+esc(x[0])+' · '+esc(x[1])+'</b></summary><p>'+esc(x[2])+'</p><small>'+esc(x[3])+'</small></details>').join(''):'<p class="small">No reviewed planning snapshot is available in the dashboard yet. The Drive workbook is still available from the source link above.</p>';
-  return '<section class="card"><div class="ey">DAILY TRAINING PLAN</div><div class="title">Plan</div><p>Drive is the editing surface; the dashboard only renders a reviewed private snapshot.</p>'+sourceMeta('dailyTrainingPlan')+sourceLink('dailyTrainingPlan','Open Daily Training Plan')+'</section><section class="card">'+sessions+'</section>';
+  return renderPlanView({ plans, esc, sourceMeta, sourceLink });
 }
 function renderResources(){
   return '<section class="card"><div class="ey">TEAM SOURCES</div><div class="title">Resources</div><p>Configured source shortcuts plus curated public guidance.</p>'+['attendance','semesterSchedule','dailyTrainingPlan','seasonTrainingArc'].map(k=>'<div class="resource source-resource"><strong>'+esc(teamOps.sources?.[k]?.title||k)+'</strong><span>'+esc(teamOps.sources?.[k]?.status==='connected'?'Configured':'Not configured')+'</span>'+sourceLink(k,'Open')+'</div>').join('')+manifest.resources.map(x=>'<a class="resource" href="'+escAttr(resourceHref(x))+'" target="_blank" rel="noopener"><i>↗</i><strong>'+esc(x.title)+'</strong><span>'+esc(x.summary)+'</span></a>').join('')+'</section>';
