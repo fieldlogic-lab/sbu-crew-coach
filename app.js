@@ -20,22 +20,17 @@ async function boot(){
   window.__coachData=await access.json();
 }
 
+import { APP, DEFAULT_TEAM_OPS, RESOURCE_FALLBACKS } from '/js/config.js';
+
 boot().then(()=>{
-const PUBLIC='https://www.rtpny.com';
+const PUBLIC=APP.publicSite;
 const MANIFEST=PUBLIC+'/content.json';
 const central=window.__coachData||{};
-const fallback=[['New Rower & Athlete Guide','First days, preparation, commands, expectations','athletes'],['Coaching Resources','Sequence, posture, recovery, connection, benchmarks','coaching'],['Regatta Hub','Race-day, travel, equipment, and family logistics','regattas'],['Parent Guide','What to expect, costs, forms, and support','parents'],['Safety & Equipment','Team movement, commands, fleet care, and readiness','safety'],['About the Program','Recruiting, alumni, leadership, and support','about']];
-const defaultTeamOps={
-  sources:{attendance:{title:'Attendance',kind:'attendance'},semesterSchedule:{title:'Semester Schedule',kind:'semesterSchedule'},dailyTrainingPlan:{title:'Daily Training Plan',kind:'dailyTrainingPlan'},seasonTrainingArc:{title:'Annual / Season Training Arc',kind:'seasonTrainingArc'}},
-  eligibilityRules:{novicePracticeMinimum:11,attendanceWarningMisses:2,attendanceCriticalMisses:3,formsRequired:true,safetyRequired:true},
-  attendance:{athletes:[],practiceDates:[]},
-  trainingPlan:{sessions:[]},
-  seasonArc:{seasons:[]},
-  lineups:{drafts:[]}
-};
+const fallback=RESOURCE_FALLBACKS;
+const defaultTeamOps=DEFAULT_TEAM_OPS;
 let teamOps=mergeTeamOps(defaultTeamOps,central.teamOps||{});
 let plans=[];
-let selectedSeason='Fall 2026';
+let selectedSeason=APP.defaultSeason;
 let seasonPlans={};
 let manifest={resources:fallback.map(x=>({title:x[0],summary:x[1],path:'#'+x[2]}))};
 let active='today';
