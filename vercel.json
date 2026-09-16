@@ -2,5 +2,8 @@
   "rewrites": [
     { "source": "/stony-brook-crew", "destination": "/" },
     { "source": "/stony-brook-crew/(.*)", "destination": "/" }
+  ],
+  "crons": [
+    { "path": "/api/attendance-refresh", "schedule": "0 7 * * *" }
   ]
 }
