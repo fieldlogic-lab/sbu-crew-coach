@@ -24,7 +24,7 @@ let manifest={resources:fallback.map(x=>({title:x[0],summary:x[1],path:'#'+x[2]}
 let active='today';
 let weatherRequest=0;
 
-function normalize(items){return (items||[]).map(s=>[s.date,s.title,(s.workout||'')+' '+(s.land||''),s.intent,s.sessionType||'land',s.releaseTimes||{water:'05:00',land:'06:01'},s])}
+function normalize(items){return (items||[]).map(s=>[s.date,s.title,s.workout||'',s.intent,s.sessionType||'land',s.releaseTimes||{water:'05:00',land:'06:01'},s])}
 function hydratePlans(){
   // The phone dashboard renders only a trusted cached snapshot from the private
   // planning source. Repository-era sessions are intentionally not used as live
@@ -89,7 +89,7 @@ function renderSeason(){
   });
 }
 function renderPlan(){
-  return renderPlanView({ plans, esc, sourceMeta, sourceLink });
+  return renderPlanView({ plans, esc, escAttr, sourceMeta, sourceLink });
 }
 function renderResources(){
   return '<section class="card"><div class="ey">TEAM SOURCES</div><div class="title">Resources</div><p>Configured source shortcuts plus curated public guidance.</p>'+['attendance','semesterSchedule','dailyTrainingPlan','seasonTrainingArc'].map(k=>'<div class="resource source-resource"><strong>'+esc(teamOps.sources?.[k]?.title||k)+'</strong><span>'+esc(teamOps.sources?.[k]?.status==='connected'?'Configured':'Not configured')+'</span>'+sourceLink(k,'Open')+'</div>').join('')+manifest.resources.map(x=>'<a class="resource" href="'+escAttr(resourceHref(x))+'" target="_blank" rel="noopener"><i>↗</i><strong>'+esc(x.title)+'</strong><span>'+esc(x.summary)+'</span></a>').join('')+'</section>';
@@ -105,11 +105,50 @@ function render(v=active){
   if(seasonChoice){seasonChoice.value=selectedSeason;seasonChoice.onchange=()=>{selectedSeason=seasonChoice.value;plans=seasonPlans[selectedSeason]||plans;render(active)}}
   document.querySelectorAll('nav button').forEach(b=>{const isActive=b.dataset.v===v;b.classList.toggle('active',isActive);b.setAttribute('aria-pressed',String(isActive))});
   document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>render(b.dataset.jump));
-  const s=document.getElementById('save-'+(p&&p[0]));
-  if(s)s.onclick=()=>{localStorage.setItem(noteKey(p[0]),document.getElementById('notes-'+p[0]).value);s.textContent='Saved';setTimeout(()=>s.textContent='Save note',1200)};
+  document.querySelectorAll('[data-save-session]').forEach(button=>button.onclick=()=>saveSession(button.dataset.saveSession));
   weatherRequest++;
   document.querySelectorAll('#view .weather').forEach(e=>e.remove());
   if(v==='today'||v==='tomorrow')weather(v,weatherRequest);
+}
+function valuesForSession(date){
+  const root=[...document.querySelectorAll('[data-session-date]')].find(node=>node.dataset.sessionDate===date);
+  const values={};
+  root?.querySelectorAll('[data-session-field]').forEach(input=>{values[input.dataset.sessionField]=input.value});
+  return values;
+}
+function applySessionEdit(date, values){
+  const session=teamOps.trainingPlan?.sessions?.find(item=>item.date===date);
+  if(!session)return false;
+  session.custom={...(session.custom||{})};
+  if('workout' in values)session.workout=values.workout;
+  if('todayMessage' in values)session.custom.todayMessage=values.todayMessage;
+  if('technicalFocus' in values)session.custom.technicalFocus=values.technicalFocus;
+  if('coachingCues' in values){session.custom.coachingCues=values.coachingCues;session.cue=values.coachingCues}
+  if('coachNotes' in values)session.custom.coachNotes=values.coachNotes;
+  teamOps.sources.dailyTrainingPlan={...(teamOps.sources.dailyTrainingPlan||{}),kind:'dailyTrainingPlan',status:'connected',lastReadAt:new Date().toISOString()};
+  hydratePlans();
+  return true;
+}
+async function saveSession(date){
+  const values=valuesForSession(date);
+  const status=[...document.querySelectorAll('[data-save-status]')].find(node=>node.dataset.saveStatus===date);
+  const button=[...document.querySelectorAll('[data-save-session]')].find(node=>node.dataset.saveSession===date);
+  if(status)status.textContent='Saving...';
+  if(button)button.disabled=true;
+  try{
+    const response=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'update-session',date,values})});
+    if(!response.ok)throw Error();
+    const data=await response.json();
+    teamOps=mergeTeamOps(defaultTeamOps,data.teamOps||teamOps);
+    applySessionEdit(date,values);
+    if(status)status.textContent='Saved';
+    setTimeout(()=>{if(status)status.textContent=''},1600);
+  }catch{
+    applySessionEdit(date,values);
+    if(status)status.textContent='Saved on this phone only - reconnect storage to publish';
+  }finally{
+    if(button)button.disabled=false;
+  }
 }
 async function weather(v, request) {
   try {
@@ -123,9 +162,10 @@ async function weather(v, request) {
       : '';
 
     const card = document.createElement('section');
-    card.className = 'card weather';
+    card.className = 'card weather ' + (conditions.tone || 'marginal');
     card.innerHTML = '<div class="ey">' + esc(conditions.eyebrow) + '</div>'
       + '<div class="status">' + esc(conditions.status) + '</div>'
+      + (conditions.statusDetail ? '<p class="weather-detail">' + esc(conditions.statusDetail) + '</p>' : '')
       + '<div class="metrics">' + conditions.metrics.map(metric =>
         '<div class="metric"><b>' + esc(metric.value) + '</b><span>' + esc(metric.label) + '</span></div>'
       ).join('') + '</div>'

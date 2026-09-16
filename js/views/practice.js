@@ -5,32 +5,25 @@
  * release, or alter practice information.
  */
 export function renderSessionCard(session, helpers) {
-  const { esc, escAttr, planField, sourceReady, sourceLink, notes } = helpers;
+  const { esc, escAttr, planField, sourceReady, sourceLink } = helpers;
   if (!session) {
     return '<section class="card"><div class="ey">NO SESSION DATA</div><div class="title">Training plan not available.</div><p>Connect the Daily Training Plan source or publish sessions from the coach console.</p></section>';
   }
 
   const message = planField(session, 'todayMessage', session[3]);
-  const novice = planField(session, 'novicePlan');
-  const varsity = planField(session, 'varsityPlan');
-  const fallbackPlan = planField(session, 'landFallback', session[6]?.land);
   const cues = planField(session, 'coachingCues', session[6]?.cue);
+  const focus = planField(session, 'technicalFocus', session[3]);
+  const coachNotes = planField(session, 'coachNotes');
 
-  return '<section class="card"><div class="ey">' + esc(session[0]) + '</div><div class="title">' + esc(session[1])
+  return '<section class="card session-card" data-session-date="' + escAttr(session[0]) + '"><div class="ey">' + esc(session[0]) + '</div><div class="title">' + esc(session[1])
     + '</div><span class="pill">' + esc(session[4] || 'land').toUpperCase() + '</span>'
     + (sourceReady('dailyTrainingPlan') ? '<div class="inline-source">' + sourceLink('dailyTrainingPlan', 'Open Daily Training Plan') + '</div>' : '')
-    + '<div class="section"><h3>TODAY’S MESSAGE</h3><p>' + esc(message || 'No message entered yet.') + '</p></div>'
-    + '<div class="section split"><div><h3>NOVICE PLAN</h3><p>' + esc(novice || 'Not specified.') + '</p></div>'
-    + '<div><h3>VARSITY PLAN</h3><p>' + esc(varsity || 'Not specified.') + '</p></div></div>'
-    + '<div class="section"><h3>WORKOUT</h3><p>' + esc(session[2] || 'Not specified.') + '</p></div>'
-    + '<div class="section"><h3>LAND FALLBACK</h3><p>' + esc(fallbackPlan || 'Not specified.') + '</p></div>'
-    + '<div class="section"><h3>TECHNICAL FOCUS</h3><p>' + esc(planField(session, 'technicalFocus', session[3]) || 'Not specified.') + '</p></div>'
-    + '<div class="section"><h3>COACHING CUES</h3><p>' + esc(cues || 'Not specified.') + '</p></div>'
-    + '<div class="section split"><div><h3>SUCCESS</h3><p>' + esc(planField(session, 'successCriteria') || 'Not specified.') + '</p></div>'
-    + '<div><h3>INTENSITY</h3><p>' + esc(planField(session, 'intensity') || 'Not specified.') + '</p></div></div>'
-    + '<div class="section"><h3>COACH NOTES</h3><textarea class="note" id="notes-' + escAttr(session[0])
-    + '" placeholder="Capture the adjustment you want to carry forward…">' + esc(notes(session[0]))
-    + '</textarea><button class="save" id="save-' + escAttr(session[0]) + '">Save note</button></div></section>';
+    + '<div class="section editable-field"><h3>TODAY’S MESSAGE</h3><textarea class="note" data-session-field="todayMessage" placeholder="What should the athletes know today?">' + esc(message) + '</textarea></div>'
+    + '<div class="section editable-field"><h3>TODAY’S WORKOUT</h3><textarea class="note large" data-session-field="workout" placeholder="Main workout for today">' + esc(session[2] || '') + '</textarea></div>'
+    + '<div class="section editable-field"><h3>FOCUS</h3><textarea class="note" data-session-field="technicalFocus" placeholder="Technical or training focus">' + esc(focus) + '</textarea></div>'
+    + '<div class="section editable-field"><h3>CUES</h3><textarea class="note" data-session-field="coachingCues" placeholder="Short coach cues">' + esc(cues) + '</textarea></div>'
+    + '<div class="section editable-field"><h3>COACH NOTES</h3><textarea class="note" data-session-field="coachNotes" placeholder="Carry-forward coach notes">' + esc(coachNotes) + '</textarea></div>'
+    + '<button class="save" data-save-session="' + escAttr(session[0]) + '">Save Daily Plan edits</button><span class="save-status small" data-save-status="' + escAttr(session[0]) + '"></span></section>';
 }
 
 export function renderNoPractice({ next, esc }) {

@@ -34,3 +34,12 @@
 .weather .marine-period strong{display:block;font-size:12px;margin-bottom:4px;color:#fff}
 .weather .marine-period span{display:block;font-size:11px;line-height:1.35;color:rgba(255,255,255,.84)}
 @media(max-width:520px){.weather .marine-periods{grid-template-columns:1fr}.weather .marine-period{padding:9px 10px}}
+.note.large{min-height:126px}
+.plan-editor{display:grid;gap:12px;margin-top:12px}
+.plan-editor label{display:grid;gap:6px;color:var(--muted);font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.06em}
+.save:disabled{opacity:.68}
+.save-status{display:inline-block;margin-left:10px}
+.weather.favorable{background:#176b47;color:#fff}
+.weather.marginal{background:#a9823e;color:#fff}
+.weather.poor{background:#a51c2d;color:#fff}
+.weather-detail{margin:0 0 12px;color:rgba(255,255,255,.88);font-size:12px;line-height:1.35}
