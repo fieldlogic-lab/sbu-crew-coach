@@ -35,8 +35,8 @@ for(const path of ['/training-plan.json','/spring-plan.json']){
   console.log(`PASS private schedule boundary ${path}`);
 }
 
-const unauth=await get(`${base}/api/console?qa=unauthenticated`);
-assert.equal(unauth.response.status,401,'coach API should reject unauthenticated reads');
-console.log('PASS coach API authentication boundary');
+const coachRecord=await get(`${base}/api/console?qa=open-coach-record`);
+assert.equal(coachRecord.response.status,200,'coach API should allow coach reads without a passcode');
+console.log('PASS coach app opens without passcode');
 
 console.log('All smoke checks passed.');

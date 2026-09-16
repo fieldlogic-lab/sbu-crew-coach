@@ -7,11 +7,11 @@ This app is intentionally organized so that a small request should change one sm
 | If the request is about… | Change this file | Do not change |
 | --- | --- | --- |
 | A label, default season, source label, or public resource wording | `js/config.js` | `app.js`, API, storage |
-| Live conditions source, units, timestamps, fallback behavior | `js/weather.js` | training, team, login, navigation |
-| Attendance normalization, eligibility, practice-count and absence rules | `js/team-ops.js` | screens, login, Drive source URLs | 
+| Live conditions source, units, timestamps, fallback behavior | `js/weather.js` | training, team, navigation |
+| Attendance normalization, eligibility, practice-count and absence rules | `js/team-ops.js` | screens, Drive source URLs |
 | Team and lineup layout/copy | `js/views/team.js` | eligibility rules, source syncing |
 | A screen’s layout or wording | the matching renderer block in `app.js` | API, source adapters |
-| Coach login, protected session, record read/write | `api/console.js` | client screens unless the API contract changes |
+| Coach record read/write | `api/console.js` | client screens unless the API contract changes |
 | Console editing fields | `console.js` / `console.html` | public app unless a new saved field is needed |
 | Daily workouts, calendar events, coaching notes, source links | the private Drive workbook or protected Coach Console | repository code |
 

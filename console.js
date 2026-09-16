@@ -10,7 +10,6 @@ const defaultTeamOps={
   lineups:{drafts:[]}
 };
 const state={plan:{season:'Fall 2026',phases:[],sessions:[]},seasons:{},content:{resources:[]},controls:{},teamOps:structuredClone(defaultTeamOps),history:[],dirty:false};
-let authCode='';
 const $=s=>document.querySelector(s);
 
 function setStatus(t){$('#save-state').textContent=t}
@@ -126,10 +125,9 @@ function renderLineups(){
   });
 }
 function renderAll(){renderSeasons();renderSessions();renderContent();renderControls();renderHistory();renderTeamSources();renderLineups()}
-const authHeaders=()=>authCode?{'x-coach-code':authCode}: {};
 async function load(){
   try{
-    const r=await fetch('/api/console',{credentials:'same-origin',headers:authHeaders()});
+    const r=await fetch('/api/console',{credentials:'same-origin'});
     if(r.ok){
       const d=await r.json();
       if(d.plan){
@@ -148,8 +146,9 @@ async function load(){
       setStatus('Connected · schedule not published');
       return 'connected';
     }
-    if(r.status===401)return 'login';
-  }catch{return 'login'}
+  }catch{}
+  setStatus('Offline · local draft only');
+  return 'connected';
 }
 function saveLocal(kind='Draft saved'){
   localStorage.setItem('coach-console-draft',JSON.stringify({plan:state.plan,content:state.content,history:state.history,teamOps:state.teamOps}));
@@ -160,7 +159,7 @@ async function save(publish=false){
   setStatus(publish?'Publishing…':'Saving…');
   try{
     state.seasons[state.plan.season]=state.plan;
-    const r=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json',...authHeaders()},body:JSON.stringify({action:publish?'publish':'draft',plan:state.plan,seasons:state.seasons,content:state.content,controls:state.controls,teamOps:state.teamOps,history:state.history})});
+    const r=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:publish?'publish':'draft',plan:state.plan,seasons:state.seasons,content:state.content,controls:state.controls,teamOps:state.teamOps,history:state.history})});
     if(!r.ok)throw Error();
     Object.assign(state,await r.json());
     state.teamOps=mergeTeamOps(state.teamOps);
@@ -169,29 +168,6 @@ async function save(publish=false){
     renderHistory();
   }catch{saveLocal(publish?'Saved locally — connect storage to publish':'Saved locally')}
 }
-$('#login-form').onsubmit=async e=>{
-  e.preventDefault();
-  $('#login-error').textContent='';
-  const body=Object.fromEntries(new FormData(e.target));
-  try{
-    const r=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'login',...body})});
-    if(!r.ok)throw Error();
-    authCode=body.code;
-    const d=await fetch('/api/console',{credentials:'same-origin',headers:authHeaders()}).then(r=>r.ok?r.json():Promise.reject());
-    if(!d.plan)throw Error();
-    Object.assign(state,d);
-    state.teamOps=mergeTeamOps(d.teamOps);
-    state.seasons=d.seasons||{[d.plan.season||'Fall 2026']:d.plan};
-    state.plan=state.seasons[state.plan.season]||d.plan;
-    state.content=d.content||{resources:[]};
-    state.controls=d.controls||{};
-    state.history=d.history||[];
-    $('#login').hidden=true;
-    $('#console').hidden=false;
-    setStatus('Connected');
-    renderAll();
-  }catch{$('#login-error').textContent='Code accepted, but the coach record could not be loaded.'}
-};
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!==t.dataset.panel)});
 $('#add-session').onclick=()=>{state.plan.sessions.push({date:'',title:'New session',block:'',intent:'',workout:'',cue:'',land:'',custom:{todayMessage:'',novicePlan:'',varsityPlan:'',landFallback:'',technicalFocus:'',coachingCues:'',successCriteria:'',intensity:''}});renderSessions();setDirty()};
 $('#add-content').onclick=()=>{state.content.resources.push({title:'New resource',summary:'',href:'#'});renderContent();setDirty()};
@@ -199,9 +175,7 @@ $('#add-lineup').onclick=()=>{state.teamOps.lineups.drafts=state.teamOps.lineups
 $('#save').onclick=()=>save(false);
 $('#publish').onclick=()=>save(true);
 (async()=>{
-  const mode=await load();
-  if(mode==='login'){$('#login').hidden=false;$('#console').hidden=true;setStatus('Sign in required');return}
-  $('#login').hidden=true;
+  await load();
   $('#console').hidden=false;
   renderAll();
-})().catch(()=>{$('#login').hidden=false;$('#console').hidden=true;setStatus('Sign in required')});
+})().catch(()=>{$('#console').hidden=false;setStatus('Offline · local draft only');renderAll()});

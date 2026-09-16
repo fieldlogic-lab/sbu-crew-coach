@@ -6,25 +6,8 @@ import { renderNoPractice, renderSessionCard } from '/js/views/practice.js';
 import { renderPlanView, renderSeasonView } from '/js/views/planning.js';
 
 async function boot(){
-  const gate=document.getElementById('access-gate');
-  const view=document.getElementById('view');
-  const nav=document.querySelector('nav');
   const access=await fetch('/api/console',{credentials:'same-origin'});
-  if(!access.ok){
-    gate.hidden=false;
-    document.getElementById('access-form').onsubmit=async e=>{
-      e.preventDefault();
-      const code=new FormData(e.target).get('code');
-      const r=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'login',code})});
-      if(r.ok)location.reload();
-      else document.getElementById('access-error').textContent='That code was not accepted.';
-    };
-    return;
-  }
-  gate.hidden=true;
-  view.hidden=false;
-  nav.hidden=false;
-  window.__coachData=await access.json();
+  window.__coachData=access.ok?await access.json():{};
 }
 
 boot().then(()=>{
