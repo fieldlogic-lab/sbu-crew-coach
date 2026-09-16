@@ -28,16 +28,27 @@ export function renderSeasonView({ arc, selectedSeason, plans, esc, sourceMeta, 
     + arcCards;
 }
 
-export function renderPlanView({ plans, esc, sourceMeta, sourceLink }) {
+function field(session, key, fallback = '') {
+  return session?.[6]?.custom?.[key] || session?.[6]?.[key] || fallback || '';
+}
+
+export function renderPlanView({ plans, esc, escAttr, sourceMeta, sourceLink }) {
   const sessions = plans.length
     ? plans.map(session =>
       '<details class="section"><summary><b>' + esc(session[0]) + ' · ' + esc(session[1]) + '</b></summary>'
-      + '<p>' + esc(session[2]) + '</p><small>' + esc(session[3]) + '</small></details>',
+      + '<div class="plan-editor" data-session-date="' + escAttr(session[0]) + '">'
+      + '<label>Today’s Message<textarea class="note" data-session-field="todayMessage">' + esc(field(session, 'todayMessage', session[3])) + '</textarea></label>'
+      + '<label>Workout<textarea class="note large" data-session-field="workout">' + esc(session[2]) + '</textarea></label>'
+      + '<label>Focus<textarea class="note" data-session-field="technicalFocus">' + esc(field(session, 'technicalFocus', session[3])) + '</textarea></label>'
+      + '<label>Cues<textarea class="note" data-session-field="coachingCues">' + esc(field(session, 'coachingCues', session[6]?.cue)) + '</textarea></label>'
+      + '<label>Coach Notes<textarea class="note" data-session-field="coachNotes">' + esc(field(session, 'coachNotes')) + '</textarea></label>'
+      + '<button class="save" data-save-session="' + escAttr(session[0]) + '">Save Daily Plan edits</button><span class="save-status small" data-save-status="' + escAttr(session[0]) + '"></span>'
+      + '</div></details>',
     ).join('')
     : '<p class="small">No reviewed planning snapshot is available in the dashboard yet. The Drive workbook is still available from the source link above.</p>';
 
   return '<section class="card"><div class="ey">DAILY TRAINING PLAN</div><div class="title">Plan</div>'
-    + '<p>Drive is the editing surface; the dashboard only renders a reviewed private snapshot.</p>'
+    + '<p>Daily Plan edits here and on Today use the same saved training-plan session.</p>'
     + sourceMeta('dailyTrainingPlan') + sourceLink('dailyTrainingPlan', 'Open Daily Training Plan') + '</section>'
     + '<section class="card">' + sessions + '</section>';
 }
