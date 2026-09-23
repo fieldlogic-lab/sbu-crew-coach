@@ -87,6 +87,35 @@ function safeAthleteSession(session, full) {
     : base;
 }
 
+function tvSession(session) {
+  if (!session) return null;
+  return {
+    date: session.date,
+    title: session.title || "Practice",
+    workout: session.workout || "",
+    cue: session.cue || "",
+    sessionType: session.sessionType || "land",
+    practiceStatus: session.practiceStatus || "forecast",
+  };
+}
+
+function tvPayload(data) {
+  const sessions = allSessions(data);
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const today = sessions.find(item => item.date === date) || null;
+  const next = sessions.find(item => item.date > date) || null;
+  return {
+    date,
+    today: tvSession(today),
+    next: tvSession(next),
+  };
+}
+
 function athletePayload(data) {
   const sessions = allSessions(data);
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
@@ -134,6 +163,10 @@ module.exports = async (req, res) => {
       if (view === 'athlete') {
         const data = await readBlob('coach-content/published.json');
         return data ? json(res, 200, athletePayload(data)) : json(res, 404, { error: 'not published' });
+      }
+      if (view === 'tv') {
+        const data = await readBlob('coach-content/published.json');
+        return data ? json(res, 200, tvPayload(data), { 'access-control-allow-origin': '*' }) : json(res, 404, { error: 'not published' });
       }
       const data = await readBlob('coach-content/draft.json');
       if (data) return json(res, 200, data);
