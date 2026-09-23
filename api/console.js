@@ -107,12 +107,15 @@ function tvPayload(data) {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+  const tomorrowDate = new Date(date + "T12:00:00Z");
+  tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
+  const tomorrowKey = tomorrowDate.toISOString().slice(0, 10);
   const today = sessions.find(item => item.date === date) || null;
-  const next = sessions.find(item => item.date > date) || null;
+  const tomorrow = sessions.find(item => item.date === tomorrowKey) || null;
   return {
     date,
     today: tvSession(today),
-    next: tvSession(next),
+    tomorrow: tvSession(tomorrow),
   };
 }
 
