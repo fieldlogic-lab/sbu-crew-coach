@@ -38,7 +38,7 @@ export const DEFAULT_TEAM_OPS = {
 export const RESOURCE_FALLBACKS = [
   ['Concept2 · Correct Rowing Technique', 'Recommended for new rowers: legs-body-arms sequencing and a controlled recovery', 'https://www.youtube.com/watch?v=4zWu1yuJ0_g'],
   ['British Rowing · Rowing Exercises', 'On-water sequencing, catch placement, roll-ups, connection, and common drills', 'https://www.britishrowing.org/knowledge/rower-development/british-rowing-technique/rowing-exercises/'],
-  ['KSU Coxswain · YouTube', 'Coach-recommended coxswain resource for steering, calls, practice execution, and race examples', 'https://www.youtube.com/results?search_query=KSU+Coxswain'],
+  ['KSU Coxswain · YouTube', 'Coach-recommended coxswain resource for steering, calls, practice execution, and race examples', 'https://www.youtube.com/@ksucoxswain3107'],
   ['Lake Union Crew · Coxswain Corner', 'Steering an eight, leaving the dock, docking, and boat-handling basics', 'https://lakeunioncrew.com/adult/coxswain-corner/'],
   ['The Coxswain\'s Log', 'Annotated real coxswain recordings focused on calls, information flow, timing, and communication', 'https://coxswainslog.com/'],
   ['New Rower & Athlete Guide', 'First days, preparation, commands, expectations', 'athletes'],
