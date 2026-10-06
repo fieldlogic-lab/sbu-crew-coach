@@ -14,7 +14,8 @@ const rounded = (measurement, factor = 1) =>
   measurement?.value == null ? null : Math.round(measurement.value * factor);
 
 const display = (value, unit) => value == null ? '—' : value + unit;
-const WIND_LIMITS = { E: 15, W: 15, S: 20, N: 10, NE: 10, NW: 15, SE: 15, SW: 15 };
+const WIND_LIMITS = { E: 15, W: 15, S: 20, N: 10, NE: 10, NW: 12, SE: 15, SW: 15 };
+const GUST_LIMITS = { NW: 15 };
 const KPH_TO_KT = 0.539957;
 
 const MARINE_ZONE = 'ANZ335';
@@ -22,7 +23,7 @@ const MARINE_URL = 'https://marine.weather.gov/MapClick.php?zoneid=' + MARINE_ZO
 
 function rowingStatus({ windKt, gustKt, direction }) {
   const limit = WIND_LIMITS[direction] || 15;
-  const gustLimit = limit + 7;
+  const gustLimit = GUST_LIMITS[direction] || limit + 7;
   if (windKt == null && gustKt == null) {
     return { tone: 'marginal', label: 'CONDITIONS UNKNOWN', detail: 'Use coach judgment before launching.' };
   }
