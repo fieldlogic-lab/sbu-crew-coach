@@ -9,8 +9,12 @@ const store = require('../api/lib/draft-store');
 const limiter = require('../api/lib/login-rate-limit');
 let rateLimited = false;
 let limiterUnavailable = false;
+let limiterStorageUnavailable = false;
 limiter.configured = () => !limiterUnavailable;
-limiter.consume = async () => ({ allowed: !rateLimited, remaining: rateLimited ? 0 : 4 });
+limiter.consume = async () => {
+  if (limiterStorageUnavailable) throw new Error('synthetic Redis unavailable');
+  return { allowed: !rateLimited, remaining: rateLimited ? 0 : 4 };
+};
 limiter.reset = async () => {};
 let draft = { plan: { season: 'Synthetic', sessions: [] }, seasons: {}, content: { resources: [] }, teamOps: { trainingPlan: { sessions: [{ date: '2099-01-01', workout: 'old' }] } }, history: [] };
 let etag = '"draft-v1"';
@@ -53,6 +57,9 @@ test('coach login sets signed cookie; authorized draft access works; attendance 
   limiterUnavailable = false;
   const badLogin = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
   assert.equal(badLogin.statusCode, 401);
+  // A coach with the correct password can recover immediately, even when the
+  // failure counter is at its limit; valid attempts do not create lockouts.
+  rateLimited = true;
   const login = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
   assert.equal(login.statusCode, 200);
   const cookie = login.headers['set-cookie'].split(';')[0];
@@ -66,7 +73,7 @@ test('coach login sets signed cookie; authorized draft access works; attendance 
 
 test('login route rejects throttled attempts and fails closed if shared limiter is unavailable', async () => {
   rateLimited = true;
-  const blocked = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
+  const blocked = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
   assert.equal(blocked.statusCode, 429);
   assert.equal(blocked.headers['retry-after'], String(limiter.WINDOW_SECONDS));
   rateLimited = false;
@@ -74,6 +81,10 @@ test('login route rejects throttled attempts and fails closed if shared limiter 
   const unavailable = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
   assert.equal(unavailable.statusCode, 503);
   limiterUnavailable = false;
+  limiterStorageUnavailable = true;
+  const storageFailure = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
+  assert.equal(storageFailure.statusCode, 503);
+  limiterStorageUnavailable = false;
 });
 
 test('authorized session updates reject stale edits and accept the current ETag', async () => {
@@ -116,3 +127,4 @@ test('write response returns data from the same latest version as its ETag', asy
     afterDraftWrite = undefined;
   }
 });
+
