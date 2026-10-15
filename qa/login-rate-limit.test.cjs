@@ -82,6 +82,22 @@ test('limiter requires an HTTPS shared service and a keyed identity secret', asy
   await assert.rejects(unconfigured.consume('coach', { headers: {} }), /not configured/);
 });
 
+test('limiter accepts Vercel Upstash-prefixed REST credentials', async () => {
+  const limiter = createLoginRateLimiter({
+    env: {
+      LOGIN_RATE_LIMIT_KV_REST_API_URL: 'https://redis.example.test',
+      LOGIN_RATE_LIMIT_KV_REST_API_TOKEN: 'synthetic-redis-token',
+      COACH_SESSION_SECRET: 'synthetic-session-secret-with-at-least-thirty-two-bytes',
+    },
+    fetchImpl: async (_url, request) => {
+      assert.equal(JSON.parse(request.body)[0], 'EVAL');
+      return { ok: true, json: async () => ({ result: [1, 1, 1] }) };
+    },
+  });
+  assert.equal(limiter.configured(), true);
+  assert.equal((await limiter.consume('coach', { headers: {} })).allowed, true);
+});
+
 test('Redis transport, HTTP, and malformed responses reject closed', async t => {
   const failureCases = [
     ['network rejection', async () => { throw new Error('network failure'); }],
