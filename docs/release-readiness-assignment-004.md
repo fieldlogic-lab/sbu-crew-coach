@@ -2,7 +2,7 @@
 
 Date: 2026-10-15. PR: [#12](https://github.com/fieldlogic-lab/sbu-crew-coach/pull/12). Reviewed starting revision: `91e0f533e430e37ab79a25bbf56f633545e44444`.
 
-**Release verdict: BLOCKED.** This change adds application-side distributed login throttling and tests. A private, isolated hosted staging environment is not established, so no hosted service or physical-device acceptance tests were run. No production deployment, merge, live record access, or account-resource change was performed.
+**Release verdict: BLOCKED.** The application change adds distributed login throttling, and an isolated test project now has its own private Blob store and a READY Preview deployment. Hosted application workflows remain blocked on independent Redis, coach credentials, and a synthetic Google integration. No production deployment, merge, or production data access was performed.
 
 ## Authentication throttling
 
@@ -20,33 +20,34 @@ Automated synthetic validation: `npm test` passed **42/42 tests**, including lim
 
 ## Staging infrastructure status
 
-Read-only Vercel metadata confirms `sbu-crew-coach-test` exists in team `team_IZEdIWVohYJ3I4Ujyj5WTavr`, has SSO protection enabled, and has the verified domain `sbu-crew-coach-test.vercel.app`. Its only recorded deployment is a READY deployment from 2026-08-31, labeled production within that project. The project has no environment variables, and its deployment has no PR #12 revision metadata. The project response did not establish repository linkage or a Blob binding. The project's team/account ownership is visible; ownership and store/resource isolation beyond that metadata were not independently verified.
+Vercel project metadata confirms `sbu-crew-coach-test` belongs to team `team_IZEdIWVohYJ3I4Ujyj5WTavr`, has SSO protection enabled, and has the domain `sbu-crew-coach-test.vercel.app`. The draft PR #13 head `14d02700e51b0a9a82f7aa4f80b8048e92bd858f` was deployed directly to this project as Preview deployment `dpl_2PGT8NQYtTG9m9D59doiws6T2DFR`, READY in region `iad1`. The verified preview URL is `https://sbu-crew-coach-test-365nmnp2h-timothyadammassi-6420.vercel.app` (SSO protected). The test project remains unlinked to Git; the deployment was created from the exact GitHub repository, branch, and SHA using Vercel's Git-source deployment API.
 
-The project is a candidate, not a usable staging target yet. No preview/staging URL is verified, and `sbu-crew-coach-test.vercel.app` must not be treated as the assignment's staging URL until the current SHA is deployed and SSO, data bindings, and integrations are confirmed. The production project PR preview remains unsafe for data tests because prior read-only review found its preview and production deployments share Blob configuration. The hosted smoke test continues to reject all non-loopback hosts.
+A new private Blob store, `sbu-crew-coach-test-blob`, was created in `iad1` and connected to the test project only. Its store ID is `store_xeLwYP3quzmmSSUy`. Read-only environment metadata identifies production's store as `store_pwc9OhW8vfzF3n1y`; the IDs differ. The new store connection creates Blob variables in the test project's Production and Preview scopes only. The production project's Blob connection still references its own store. Store usage was zero at inspection. The Preview deployment is a separate Vercel project deployment and carries only that test project’s Preview environment. Thus Blob isolation is verified; hosted application-level read/write behavior is not yet tested.
 
-### Executive Owner actions needed before deployment
+The test project's environment currently contains only the three Blob connection variables in Production and Preview. It has no coach login, session, rate-limit, OAuth, sheet, service-token, or cron credentials. The deployment target is Preview (`target: null`), so the Vercel cron schedule is not active for this deployment. No live records or external integrations were accessed. The production project's PR preview remains unsafe for data tests because its Preview and Production scopes share production Blob configuration. The hosted smoke test continues to reject non-loopback hosts.
 
-1. Confirm `sbu-crew-coach-test` is the approved project and authorize its use for acceptance testing. In Vercel project settings, confirm its Git repository is `fieldlogic-lab/sbu-crew-coach`, attach the reviewed PR #12 head SHA `8325f5a6a5ae37540a46244a8e6c571d0c0a5ef0`, and confirm the resulting deployment is in that project. No deploy was issued because the inspected project is unconfigured and not linked to the reviewed revision.
-2. Approve creation/use of a dedicated private Vercel Blob store for this staging project. Confirm its store ID differs from production and that only staging has its read/write token. Seed synthetic records only after the identity check.
-3. Approve a dedicated Redis/Upstash database and scoped REST token for staging. Set the variables listed above only in the test project.
-4. Provision independent synthetic coach username/password/session secret, `ATTENDANCE_SYNC_TOKEN`, and `CRON_SECRET`. Keep OAuth credentials separate. Do not copy production OAuth tokens, Blob tokens, coach secrets, athlete data, or attendance records.
-5. Create a synthetic Google Sheet with synthetic row names and dates, plus an independent Google Cloud OAuth client with read-only Sheets scope and only the test project's callback URL. Store any refresh token only in the test Blob store. Verify the spreadsheet ID and credentials before enabling the staging cron; otherwise leave scheduled integrations disabled. The current `vercel.json` schedules attendance refresh at `07:00 UTC` for a production-target deployment, so confirm the test deployment can only reach its synthetic Sheet before allowing that schedule to run.
+### Executive Owner actions needed before application acceptance
 
-These are account/resource/credential actions and were not performed. After approval and provisioning, the exact test-project environment variable names can be filled from `docs/ATTENDANCE_OAUTH.md` plus the new limiter variables. Do not copy values from production.
+1. Acknowledge the created test-only Blob store and use its private token only within `sbu-crew-coach-test`. Do not copy the token into another project.
+2. Provision a dedicated free-tier Redis/Upstash database and REST token for the test project. The integration setup is awaiting approval to accept Vercel Marketplace and Upstash terms and share Vercel account metadata with Upstash. Set `LOGIN_RATE_LIMIT_REST_URL` and `LOGIN_RATE_LIMIT_REST_TOKEN` in the test project only.
+3. Enter an independent synthetic coach username/password and session secret directly into the test project's environment. `COACH_SESSION_SECRET` must be at least 32 bytes; `COACH_PASSWORD` must be at least 16 characters. Add independent `ATTENDANCE_SYNC_TOKEN` and `CRON_SECRET` only after integration isolation is ready. Never copy production OAuth tokens, Blob tokens, coach secrets, athlete data, or attendance records.
+4. Create a synthetic Google Sheet with synthetic row names and dates, plus an independent Google Cloud OAuth client with read-only Sheets scope and only the test project's callback URL. Store any refresh token only in the test Blob store. Verify the spreadsheet ID and credentials before enabling a staging cron. `vercel.json` schedules attendance refresh at `07:00 UTC` for production-target deployments; leave the cron unconfigured until its synthetic destination is confirmed.
+
+The Blob store and Preview deployment are established. Remaining account/resource/credential actions are independent Redis setup, independent coach credentials, and a synthetic Google integration. The Upstash marketplace step is waiting on separate acceptance of its terms and account-data sharing. Do not copy values from production.
 
 ## Hosted tests and isolation evidence
 
 | Requested validation | Status |
 |---|---|
-| Hosted coach login / logout | **Not run** — staging has no authentication or limiter configuration. |
-| Private Blob read/write and separation from production | **Not run** — no test Blob binding or store identity was available to verify. |
+| Hosted coach login / logout | **Blocked** — protected dashboard request returned the expected `503` because staging coach credentials are not configured; successful login/throttling recovery awaits independent credentials and Redis. |
+| Private Blob read/write and separation from production | **Isolation verified; read/write test not run** — unique private test store is bound to the test project. Its athlete read endpoint returned expected `404` on an empty store. SDK write/read and CAS tests await coach auth setup. |
 | Concurrent update / conflict handling on hosted Blob | **Not run** — local synthetic CAS coverage remains; hosted Blob semantics are unverified. |
-| Athlete publication and error recovery | **Not run hosted** — local synthetic publication and partial-failure tests remain passing. |
+| Athlete publication and error recovery | **Not run hosted** — the synthetic athlete endpoint correctly reports no publication on the empty test store; hosted publication/recovery awaits coach auth setup. Local synthetic publication and partial-failure tests remain passing. |
 | Google Sheets attendance sync | **Not run** — no independent OAuth client or synthetic sheet is configured. |
-| Staging cron isolation | **Not verified** — `vercel.json` declares the refresh schedule, but test project's revision and isolated environment are not established. Do not enable staging refresh until the synthetic destination is verified. |
-| Staging vs production isolation | **Not established** — existing production preview must not be used; a distinct private store, credentials, and integration destination still need proof. |
+| Staging cron isolation | **Verified inactive for current deployment** — it is Preview-targeted, and Vercel Cron runs only for production-target deployments. Keep it that way until synthetic integration setup is verified. |
+| Staging vs production isolation | **Blob boundary verified** — test and production Blob store IDs differ; the test project's environment list contains only its own Blob connection variables. Independent app, Redis, OAuth, and sheet credentials remain unconfigured. |
 
-Once approved resources exist, record non-secret evidence: project ID, deployment ID and SHA, test and production Blob store IDs (not tokens), environment scopes (names and scope only), Google test project/sheet identifiers, cron target, and SSO check. Then run hosted acceptance only against the confirmed staging hostname using synthetic data and the approved staging credentials.
+Before hosted acceptance, record non-secret evidence: project ID, deployment ID and SHA, test and production Blob store IDs (not tokens), environment variable names and scopes, Google test project/sheet identifiers, cron target, and SSO check. Run hosted acceptance only against the confirmed staging hostname using synthetic data and staging credentials.
 
 ## Physical-device acceptance checklist
 
@@ -70,3 +71,4 @@ The intended source-of-truth model documented in `docs/DAILY_PLAN_SYNC.md` is th
 The new code removes the known process-local-throttling risk by requiring an external atomic shared counter. Synthetic suite: **PASS, 42/42**. The implementation and test cases in this assignment did not receive a separate independent security/QA agent review during this run. Outstanding security gates are provisioning and verifying the distributed store, hosted fail-closed/recovery behavior, independent review of the new throttling policy, store/credential separation, and review of cron/OAuth isolation. Existing signed sessions remain stateless until expiry or signing-secret rotation, as recorded in Assignment 003.
 
 **Recommendation:** do not release to production. Approve and configure isolated staging resources, deploy the reviewed PR SHA only to the test project, complete hosted synthetic-service tests and physical-device checks, and obtain an independent security/QA review before Executive Owner acceptance and any later production decision. Do not merge or deploy to production as part of this assignment.
+
