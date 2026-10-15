@@ -18,6 +18,8 @@ body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 -apple-sys
 .login-panel h2,.intro h2{font-size:32px;line-height:1.02;margin:8px 0 12px}
 .login-panel form{display:grid;gap:14px;margin-top:24px}
 .login-panel .button{width:max-content}
+.login-panel label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:800}
+.login-panel input{width:100%;border:1px solid #bcc5ca;border-radius:6px;padding:11px;font:inherit;color:var(--ink);background:#fff}
 .intro{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:end;margin-bottom:30px}
 .intro>p{max-width:450px;color:var(--muted);margin:0 0 6px}
 .tabs{display:flex;gap:4px;border-bottom:2px solid var(--ink);margin-bottom:18px;overflow:auto}

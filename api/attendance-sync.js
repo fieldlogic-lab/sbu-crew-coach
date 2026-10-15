@@ -1,18 +1,5 @@
-const { put, get } = require('@vercel/blob');
-
-async function readBlob(pathname) {
-  const result = await get(pathname, { access: 'private' });
-  if (!result || !result.stream) return null;
-  return new Response(result.stream).json();
-}
-
-async function writeBlob(pathname, data) {
-  await put(pathname, JSON.stringify(data), {
-    access: 'private',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
-}
+const { updateDraft } = require('./lib/draft-store');
+const { authorizedAttendanceRequest } = require('./lib/attendance-auth');
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -102,8 +89,7 @@ function normalizePayload(payload) {
 module.exports = async (req, res) => {
   try {
     if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' });
-    const token = req.headers['x-attendance-sync-token'] || new URL(req.url, 'https://localhost').searchParams.get('token');
-    if (!process.env.ATTENDANCE_SYNC_TOKEN || token !== process.env.ATTENDANCE_SYNC_TOKEN) {
+    if (!authorizedAttendanceRequest(req)) {
       return send(res, 401, { error: 'sync unauthorized' });
     }
 
@@ -111,33 +97,30 @@ module.exports = async (req, res) => {
     const { athletes, practiceDates } = normalizePayload(payload);
     if (!athletes.length) return send(res, 400, { error: 'no attendance rows' });
 
-    const data = await readBlob('coach-content/draft.json');
+    const now = new Date().toISOString();
+    const data = await updateDraft(data => {
+      data.teamOps = data.teamOps || {};
+      data.teamOps.attendance = { ...(data.teamOps.attendance || {}), athletes, practiceDates };
+      data.teamOps.sources = data.teamOps.sources || {};
+      data.teamOps.sources.attendance = {
+        ...(data.teamOps.sources.attendance || {}),
+        kind: 'attendance',
+        title: payload.title || data.teamOps.sources.attendance?.title || 'Attendance',
+        href: payload.href || data.teamOps.sources.attendance?.href || '',
+        status: 'connected',
+        lastReadAt: now,
+        sheet: payload.sheet || data.teamOps.sources.attendance?.sheet || '',
+      };
+      data.history = [
+        { label: 'Synced attendance source', at: now, kind: 'attendance-sync' },
+        ...(data.history || []),
+      ].slice(0, 20);
+      return data;
+    });
     if (!data) return send(res, 404, { error: 'draft not found' });
-
-    data.teamOps = data.teamOps || {};
-    data.teamOps.attendance = {
-      ...(data.teamOps.attendance || {}),
-      athletes,
-      practiceDates,
-    };
-    data.teamOps.sources = data.teamOps.sources || {};
-    data.teamOps.sources.attendance = {
-      ...(data.teamOps.sources.attendance || {}),
-      kind: 'attendance',
-      title: payload.title || data.teamOps.sources.attendance?.title || 'Attendance',
-      href: payload.href || data.teamOps.sources.attendance?.href || '',
-      status: 'connected',
-      lastReadAt: new Date().toISOString(),
-      sheet: payload.sheet || data.teamOps.sources.attendance?.sheet || '',
-    };
-    data.history = [
-      { label: 'Synced attendance source', at: new Date().toISOString(), kind: 'attendance-sync' },
-      ...(data.history || []),
-    ].slice(0, 20);
-
-    await writeBlob('coach-content/draft.json', data);
     return send(res, 200, { ok: true, syncedAthletes: athletes.length, practiceDates: practiceDates.length });
-  } catch {
+  } catch (error) {
+    if (error?.statusCode === 412) return send(res, 412, { error: 'draft conflict', code: 'DRAFT_CONFLICT' });
     return send(res, 500, { error: 'attendance sync failed' });
   }
 };

@@ -1,1 +1,145 @@
-const view=document.getElementById('athlete-view');const tz='America/New_York';const weatherUrl='https://api.open-meteo.com/v1/forecast?latitude=40.9465&longitude=-73.0693&current=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant&forecast_days=2&wind_speed_unit=kn&temperature_unit=fahrenheit&timezone=America%2FNew_York';function now(){return new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date())}function release(session){const mode=session?.practiceStatus==='water'||session?.practiceStatus==='land'?session.practiceStatus:session?.sessionType==='water'?'water':'land';return {mode,time:session?.releaseTimes?.[mode]||(mode==='water'?'05:00':'06:01')}}function ready(time){return now()>=time}function direction(value){return value==null?'—':['N','NE','E','SE','S','SW','W','NW'][Math.round(value/45)%8]}async function load(){const [schedule,weather]=await Promise.all([fetch('/api/console?view=athlete',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).catch(()=>null),fetch(weatherUrl).then(r=>r.ok?r.json():null).catch(()=>null)]);const d=schedule?.date||new Intl.DateTimeFormat('en-CA',{timeZone:tz}).format(new Date());const s=schedule?.session;const next=schedule?.nextSession;const coachPreview=!!schedule?.coachPreview;const status=s?.practiceStatus||'forecast';const decision=status==='canceled'?'PRACTICE CANCELED':status==='water'?'COACH: WATER':status==='land'?'COACH: LAND':'FORECAST ONLY';const r=release(s);const canceled=status==='canceled';const visible=!!s&&!canceled&&(coachPreview||ready(r.time));const q=weather?.current;const daily=weather?.daily;const tomorrowTemp=daily?Math.round(daily.temperature_2m_min[1])+'°–'+Math.round(daily.temperature_2m_max[1])+'°':'—';const tomorrowWind=daily?Math.round(daily.wind_speed_10m_max[1])+' kt / '+Math.round(daily.wind_gusts_10m_max[1])+' kt':'—';const current=q?'<div class="metric"><b>'+Math.round(q.wind_speed_10m)+' kt</b><span>WIND</span></div><div class="metric"><b>'+Math.round(q.wind_gusts_10m)+' kt</b><span>GUST</span></div><div class="metric"><b>'+Math.round(q.temperature_2m)+'°</b><span>AIR</span></div><div class="metric"><b>'+direction(q.wind_direction_10m)+'</b><span>DIRECTION</span></div>':'<div class="metric"><b>—</b><span>NO DATA</span></div>';const workout=s&&visible?'<div class="section"><h3>WORKOUT</h3><p>'+s.workout+'</p><h3>COACH CUE</h3><p>'+s.cue+'</p></div>':'';const noPractice=canceled?'<p>Practice has been canceled for today. Follow the latest coach or team message.</p>':!s?'<p>No organized workout is scheduled today.'+(next?' The next scheduled session is '+next.date+' · '+next.title+'.':'')+'</p>':'';view.innerHTML='<section class="card weather"><div class="ey">PORT JEFFERSON HARBOR · '+d+'</div><div class="status">'+(q?decision:'CONDITIONS UNAVAILABLE')+'</div><div class="metrics">'+current+'</div><p class="small">Forecast information only. The coach’s water/land/cancellation decision controls practice.</p></section><section class="card"><div class="ey">TOMORROW · PORT JEFFERSON HARBOR</div><div class="title">Forecast</div><div class="metrics"><div class="metric"><b>'+tomorrowTemp+'</b><span>AIR</span></div><div class="metric"><b>'+tomorrowWind+'</b><span>WIND / GUST</span></div></div></section><section class="card"><div class="ey">'+(coachPreview?'COACH PREVIEW · ':'DAILY RELEASE · ')+(s?r.mode.toUpperCase():'NO WORKOUT')+'</div><div class="title">'+(canceled?'Practice canceled':visible?s.title:s?'Workout opens at '+r.time+' AM':'No organized workout today')+'</div><p>'+(visible?s.intent:s?'The plan will appear automatically at the scheduled release time. Check conditions first and follow coach direction.':'')+'</p>'+workout+noPractice+'<p class="small">Water workouts go live at 5:00 AM Eastern. Land workouts go live at 6:01 AM Eastern.</p></section>'}load().catch(()=>{view.innerHTML='<section class="card"><div class="title">Unable to load today’s view.</div><p>Check your connection and try again.</p></section>'});setInterval(load,60000);
+(function exposeAthleteController(root, createController) {
+  const api = createController();
+  if (typeof module === 'object' && module.exports) {
+    module.exports = api;
+  } else {
+    api.start(root);
+  }
+})(globalThis, function createControllerApi() {
+  const weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=40.9465&longitude=-73.0693&current=temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant&forecast_days=2&wind_speed_unit=kn&temperature_unit=fahrenheit&timezone=America%2FNew_York';
+  const scheduleUrl = '/api/console?view=athlete';
+
+  async function timedJson(fetchImpl, url, { timeoutMs, credentials, timers, AbortControllerImpl }) {
+    const controller = AbortControllerImpl ? new AbortControllerImpl() : null;
+    let timeoutId;
+    const timeout = new Promise((resolve, reject) => {
+      timeoutId = timers.setTimeout(() => {
+        controller?.abort();
+        reject(new Error('request timed out'));
+      }, timeoutMs);
+    });
+    const request = Promise.resolve().then(() => fetchImpl(url, {
+      ...(credentials ? { credentials } : {}),
+      ...(controller ? { signal: controller.signal } : {}),
+    })).then(response => {
+      if (!response?.ok) throw new Error(`request failed (${response?.status || 'no response'})`);
+      return response.json();
+    });
+    try {
+      return await Promise.race([request, timeout]);
+    } finally {
+      timers.clearTimeout(timeoutId);
+    }
+  }
+
+  function createAthleteController({
+    view,
+    fetchImpl,
+    render,
+    renderMessage,
+    protocol = 'https:',
+    scheduleTimeoutMs = 8000,
+    weatherTimeoutMs = 5000,
+    refreshMs = 60000,
+    timers = globalThis,
+    AbortControllerImpl = globalThis.AbortController,
+  }) {
+    let timerId = null;
+    let runId = 0;
+    let schedulePending = false;
+    let stopped = false;
+    let schedule = null;
+    let weather = null;
+
+    const showUnavailable = () => renderMessage(
+      view,
+      'ATHLETE VIEW',
+      'Practice plan unavailable',
+      'We could not load today’s practice plan. Check your connection and try again. The view will also retry automatically.',
+      'Try again',
+      () => { void load(); },
+    );
+
+    async function load() {
+      if (stopped || schedulePending) return;
+      schedulePending = true;
+      const thisRun = ++runId;
+      schedule = null;
+      weather = null;
+
+      const weatherTask = timedJson(fetchImpl, weatherUrl, {
+        timeoutMs: weatherTimeoutMs, timers, AbortControllerImpl,
+      }).then(result => {
+        if (stopped || thisRun !== runId) return;
+        weather = result;
+        if (schedule) render(view, schedule, weather);
+      }).catch(() => {
+        if (stopped || thisRun !== runId) return;
+        weather = null;
+        if (schedule) render(view, schedule, null);
+      });
+
+      try {
+        const result = await timedJson(fetchImpl, scheduleUrl, {
+          timeoutMs: scheduleTimeoutMs, credentials: 'same-origin', timers, AbortControllerImpl,
+        });
+        if (!result || typeof result !== 'object' || !Object.hasOwn(result, 'session')) {
+          throw new Error('invalid schedule response');
+        }
+        if (!stopped && thisRun === runId) {
+          schedule = result;
+          render(view, schedule, weather);
+        }
+      } catch {
+        if (!stopped && thisRun === runId) showUnavailable();
+      } finally {
+        if (thisRun === runId) schedulePending = false;
+      }
+      void weatherTask;
+    }
+
+    function start(target = globalThis) {
+      view = view || target.document?.getElementById('athlete-view');
+      fetchImpl = fetchImpl || target.fetch?.bind(target);
+      render = render || target.renderAthleteView;
+      renderMessage = renderMessage || target.renderAthleteView?.showMessage;
+      if (target.location?.protocol === 'file:' || protocol === 'file:') {
+        renderMessage(
+          view,
+          'OPEN THE LIVE SITE',
+          'Athlete View needs the Crew Coach website',
+          'This downloaded file can show its design, but it cannot load the live practice plan. Open Athlete View from the Crew Coach website instead.',
+        );
+        return () => {};
+      }
+      stopped = false;
+      void load();
+      timerId = timers.setInterval(() => { void load(); }, refreshMs);
+      return stop;
+    }
+
+    function stop() {
+      stopped = true;
+      runId += 1;
+      schedulePending = false;
+      if (timerId !== null) timers.clearInterval(timerId);
+      timerId = null;
+    }
+
+    return { start, load, stop };
+  }
+
+  function start(target = globalThis) {
+    const renderer = target.renderAthleteView;
+    const controller = createAthleteController({
+      view: target.document?.getElementById('athlete-view'),
+      fetchImpl: target.fetch?.bind(target),
+      render: renderer,
+      renderMessage: renderer?.showMessage,
+      protocol: target.location?.protocol,
+    });
+    return controller.start(target);
+  }
+
+  return { start, createAthleteController, timedJson, scheduleUrl, weatherUrl };
+});

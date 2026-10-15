@@ -6,11 +6,21 @@ import { renderNoPractice, renderSessionCard } from '/js/views/practice.js';
 import { renderPlanView, renderSeasonView } from '/js/views/planning.js';
 
 async function boot(){
-  const access=await fetch('/api/console',{credentials:'same-origin'});
-  window.__coachData=access.ok?await access.json():{};
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),10000);
+  let access;
+  try{
+    access=await fetch('/api/console',{credentials:'same-origin',signal:controller.signal});
+    if(access.status===401){window.location.replace('/console.html');return false}
+    if(!access.ok)throw new Error('Unable to load the private coach record');
+    window.__coachEtag=access.headers.get('etag')||'';
+    window.__coachData=await access.json();
+    return true;
+  }finally{clearTimeout(timeout)}
 }
 
-boot().then(()=>{
+boot().then(ready=>{
+if(!ready)return;
 const PUBLIC=APP.publicSite;
 const MANIFEST=PUBLIC+'/content.json';
 const central=window.__coachData||{};
@@ -133,20 +143,50 @@ async function saveSession(date){
   const values=valuesForSession(date);
   const status=[...document.querySelectorAll('[data-save-status]')].find(node=>node.dataset.saveStatus===date);
   const button=[...document.querySelectorAll('[data-save-session]')].find(node=>node.dataset.saveSession===date);
+  const sessionRoot=[...document.querySelectorAll('[data-session-date]')].find(node=>node.dataset.sessionDate===date);
+  const inputs=[...(sessionRoot?.querySelectorAll('[data-session-field]')||[])];
   if(status)status.textContent='Saving...';
   if(button)button.disabled=true;
+  inputs.forEach(input=>{input.disabled=true});
   try{
-    const response=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'update-session',date,values})});
+    const response=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','if-match':window.__coachEtag||''},body:JSON.stringify({action:'update-session',date,values})});
+    if(response.status===412){
+      if(status){
+        status.replaceChildren(document.createTextNode('Conflict: the saved plan changed. '));
+        const recovery=document.createElement('a');
+        recovery.className='save-status';
+        recovery.textContent='Download these edits';
+        recovery.download=`sbu-session-${date}-recovery.json`;
+        recovery.href=URL.createObjectURL(new Blob([JSON.stringify({date,values},null,2)],{type:'application/json'}));
+        status.append(recovery);
+      }
+      return;
+    }
+    if(response.status===401){if(status)status.textContent='Sign in again to save';return}
     if(!response.ok)throw Error();
+    window.__coachEtag=response.headers.get('etag')||window.__coachEtag;
     const data=await response.json();
     teamOps=mergeTeamOps(defaultTeamOps,data.teamOps||teamOps);
-    applySessionEdit(date,values);
-    if(status)status.textContent='Saved';
-    setTimeout(()=>{if(status)status.textContent=''},1600);
+    // Display the canonical response paired with the new ETag. Reapplying old
+    // local values here would conceal an update that landed during this save.
+    hydratePlans();
+    render(active);
+    const savedStatus=[...document.querySelectorAll('[data-save-status]')].find(node=>node.dataset.saveStatus===date);
+    if(savedStatus)savedStatus.textContent='Saved · latest plan loaded';
+    setTimeout(()=>{if(savedStatus)savedStatus.textContent=''},1600);
   }catch{
     applySessionEdit(date,values);
-    if(status)status.textContent='Saved on this phone only - reconnect storage to publish';
+    if(status){
+      status.replaceChildren(document.createTextNode('Save failed. These edits are only in this page. '));
+      const recovery=document.createElement('a');
+      recovery.className='save-status';
+      recovery.textContent='Download recovery JSON';
+      recovery.download=`sbu-session-${date}-recovery.json`;
+      recovery.href=URL.createObjectURL(new Blob([JSON.stringify({date,values},null,2)],{type:'application/json'}));
+      status.append(recovery);
+    }
   }finally{
+    inputs.forEach(input=>{input.disabled=false});
     if(button)button.disabled=false;
   }
 }
@@ -182,5 +222,11 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>render(b.datase
 document.querySelector('.edit').onclick=()=>{render('today');document.querySelector('.note')?.focus()};
 render();
 fetch(MANIFEST).then(r=>r.json()).then(x=>{if(x.resources?.length){manifest=x;render(active)}}).catch(()=>{});
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js');
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}).catch(()=>{
+  const card=document.createElement('section');card.className='card';
+  const title=document.createElement('div');title.className='title';title.textContent='Coach dashboard unavailable';
+  const message=document.createElement('p');message.textContent='Your private plan could not be loaded. Check your connection and try again.';
+  const retry=document.createElement('a');retry.href='/';retry.textContent='Try again';
+  card.append(title,message,retry);document.getElementById('view').replaceChildren(card);
 });
