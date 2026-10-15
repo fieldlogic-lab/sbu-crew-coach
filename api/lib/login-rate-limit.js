@@ -36,8 +36,10 @@ function counterKeys(username, req, secret) {
 
 function createLoginRateLimiter({ env = process.env, fetchImpl = globalThis.fetch } = {}) {
   function configuration() {
-    const url = env.LOGIN_RATE_LIMIT_REST_URL || '';
-    const token = env.LOGIN_RATE_LIMIT_REST_TOKEN || '';
+    // Vercel's Upstash connection prefix generates KV_REST_API_* names.
+    // Keep the application-specific names supported for manually provisioned setups.
+    const url = env.LOGIN_RATE_LIMIT_REST_URL || env.LOGIN_RATE_LIMIT_KV_REST_API_URL || '';
+    const token = env.LOGIN_RATE_LIMIT_REST_TOKEN || env.LOGIN_RATE_LIMIT_KV_REST_API_TOKEN || '';
     const secret = env.COACH_SESSION_SECRET || '';
     if (!url || !token || Buffer.byteLength(secret, 'utf8') < 32) return null;
     let parsed;
