@@ -1,0 +1,91 @@
+# Assignment 004 — Staging and final release preparation
+
+Date: 2026-10-15. PR: [#12](https://github.com/fieldlogic-lab/sbu-crew-coach/pull/12). Reviewed starting revision: `91e0f533e430e37ab79a25bbf56f633545e44444`.
+
+**Release verdict: BLOCKED.** At the time of Assignment 004, isolated Preview revision `28e2f6f89b95d775a85c3aee436ac30f21182605` returned `console unavailable` despite Preview-only synthetic coach credentials, and runtime queries showed no diagnostic entries. Assignment 005 below confirms and corrects the source-level cause. Post-fix hosted login and the remaining acceptance checks are still pending. No production deployment, merge, or production data access occurred.
+
+## Authentication throttling
+
+`api/lib/login-rate-limit.js` uses an HTTPS Redis REST service. A single atomic Redis Lua operation increments per-client, per-client/username, and per-username counters shared across Vercel instances; no process memory is used. HMAC-derived keys avoid storing usernames or IP addresses as Redis key text. Failed attempts are limited to five per client and per client/username, plus a conservative 20 per username across clients, all in a 15-minute window. Only bad credentials count. A correct login remains available even when counters are at their limits and clears all three buckets, avoiding a counter-based lockout for the valid coach. Excess bad attempts receive `429` with `Retry-After`; absent or unavailable limiter configuration returns `503` before checking credentials, so the application does not silently fall back to an ineffective local limiter. A successful login still issues the existing scoped, secure session cookie.
+
+Required Vercel settings for **each isolated application environment**:
+
+- `LOGIN_RATE_LIMIT_REST_URL` / `LOGIN_RATE_LIMIT_REST_TOKEN`, or the Upstash integration's `LOGIN_RATE_LIMIT_KV_REST_API_URL` / `LOGIN_RATE_LIMIT_KV_REST_API_TOKEN`. The application accepts either pair; both values must belong to that environment's dedicated Redis database.
+- Existing `COACH_SESSION_SECRET` — at least 32 bytes; also keys non-reversible limiter bucket names.
+
+Do not reuse production Redis credentials or database. Executive Owner authorized the terms and account-data sharing for this test-only integration; the database was provisioned on the Free plan. The chosen fixed window can allow a short burst across a window boundary; it does not permanently lock the coach account. Hosted provider behavior, latency, availability, and configured Vercel forwarding headers remain to be verified.
+
+Automated synthetic validation: `npm test` passed **50/50 tests**, including shared-IP enforcement, a per-account ceiling across many client IPs, expiry recovery, successful-login reset even when counters are at the ceiling, Upstash-generated environment variable compatibility, Redis network/HTTP/provider/malformed-response failures, route-level `429`/`503`, and the existing coach/Blob/PWA regression suite. Tests use a mock Redis REST endpoint; they do not prove hosted limiter behavior.
+
+## Staging infrastructure status
+
+Vercel project metadata confirms `sbu-crew-coach-test` belongs to team `team_IZEdIWVohYJ3I4Ujyj5WTavr`, has SSO protection enabled, and has the domain `sbu-crew-coach-test.vercel.app`. Application revision `28e2f6f89b95d775a85c3aee436ac30f21182605` is deployed as Preview `dpl_GcQ9n8F9ALRn25ZHzACuB8ziraK2`, READY in region `iad1`, SSO protected. The Preview URL is `https://sbu-crew-coach-test-4o2ue17zl-timothyadammassi-6420.vercel.app`. The current PR head has a later report-only commit. Temporary synthetic coach credentials are scoped to this test project's Preview environment only.
+
+A new private Blob store, `sbu-crew-coach-test-blob`, was created in `iad1` and connected to the test project only. Its store ID is `store_xeLwYP3quzmmSSUy`. Read-only environment metadata identifies production's store as `store_pwc9OhW8vfzF3n1y`; the IDs differ. The new store connection creates Blob variables in the test project's Production and Preview scopes only. The production project's Blob connection still references its own store. Store usage was zero at inspection. The Preview deployment is a separate Vercel project deployment and carries only that test project’s Preview environment. Thus Blob isolation is verified; hosted application-level read/write behavior is not yet tested.
+
+The test project's environment contains its three private Blob connection variables and the five Upstash integration variables (`LOGIN_RATE_LIMIT_KV_REST_API_TOKEN`, `LOGIN_RATE_LIMIT_KV_REST_API_URL`, `LOGIN_RATE_LIMIT_KV_REST_API_READ_ONLY_TOKEN`, `LOGIN_RATE_LIMIT_KV_URL`, and `LOGIN_RATE_LIMIT_REDIS_URL`) in that test project's Production and Preview scopes. The Upstash store `store_4MtwzytQPylMqR4x` is named `sbu-crew-coach-test-rate-limit`, connected only to `sbu-crew-coach-test`, and uses the Free plan in `iad1` with a displayed monthly command allowance of 500,000. No paid plan or read replica was selected. Only the write-capable REST URL/token are consumed by the limiter; the read-only token is not used. The Upstash console returned `PONG` to `PING`; a synthetic `INCR` returned `1` and the subsequent `DEL` removed that key. The console parser returned an argument error for a typed `EVAL` probe, so hosted Lua evaluation through the Vercel application remains unverified. Temporary coach username/password/session variables were provisioned for one hosted attempt, then removed from the test project's environment. Both credential-bearing Preview deployments were deleted because Vercel warns that their captured values can persist until the deployment is removed. At that earlier clean deployment check, no coach credential variables remained and `/api/console` returned `503 coach authentication is not configured`; the values were later reprovisioned in Preview only, where a subsequent sign-in produced `500 console unavailable`. `/api/console?view=athlete` returns expected `404 not published` from the empty isolated store. No independent Google OAuth client or synthetic sheet exists. Vercel Cron is inactive. No live records or external integrations were accessed. The production project's PR preview remains unsafe for data tests because its Preview and Production scopes share production Blob configuration. The hosted smoke test continues to reject non-loopback hosts.
+
+### Executive Owner actions needed before application acceptance
+
+1. Acknowledge the created test-only Blob store and use its private token only within `sbu-crew-coach-test`. Do not copy the token into another project.
+2. The dedicated Upstash Redis database is provisioned in the test project. Review the Vercel Free plan limit (500,000 monthly commands shown at setup) and manage the integration only in the `sbu-crew-coach-test` project. The integration set its generated URL/token variables in the test project's Production and Preview scopes; the application supports those names. No paid plan was selected.
+3. Temporary synthetic username/password/session-secret values were rotated for Assignment 005 and remain scoped to the test project's Preview environment only. Reset them before Executive Owner acceptance. The controlled post-fix sign-in is still pending. `COACH_SESSION_SECRET` must be at least 32 bytes; `COACH_PASSWORD` must be at least 16 characters. Add independent `ATTENDANCE_SYNC_TOKEN` and `CRON_SECRET` only after integration isolation is ready. Never copy production OAuth tokens, Blob tokens, coach secrets, athlete data, or attendance records.
+4. Create a synthetic Google Sheet with synthetic row names and dates, plus an independent Google Cloud OAuth client with read-only Sheets scope and only the test project's callback URL. Store any refresh token only in the test Blob store. Verify the spreadsheet ID and credentials before enabling a staging cron. `vercel.json` schedules attendance refresh at `07:00 UTC` for production-target deployments; leave the cron unconfigured until its synthetic destination is confirmed.
+
+The private Blob and Redis stores and an isolated Preview deployment are established. Temporary synthetic coach credentials were rotated for Assignment 005 and must be rotated again before acceptance. The synthetic Google integration remains to be created with separate credentials. Do not copy values from production.
+
+## Hosted tests and isolation evidence
+
+| Requested validation | Status |
+|---|---|
+| Hosted coach login / logout | **Failed / incomplete at the time of the earlier attempt** — Preview `dpl_GcQ9n8F9ALRn25ZHzACuB8ziraK2` returned `console unavailable`; Assignment 005 confirms the source-level root cause. A corrected Preview deployment is READY, but the controlled post-fix login and hosted QA have not yet run. |
+| Private Blob read/write and separation from production | **Isolation verified; empty-store read verified; write not run** — the isolated athlete read endpoint returned expected `404 not published`, confirming the request reached the empty private test store. A synthetic authenticated write/read and CAS check awaits resolving the hosted login failure. |
+| Concurrent update / conflict handling on hosted Blob | **Not run** — local synthetic CAS coverage remains; hosted Blob semantics are unverified. |
+| Athlete publication and error recovery | **Not run hosted** — the synthetic athlete endpoint correctly reports no publication on the empty test store; hosted publication/recovery awaits coach auth setup. Local synthetic publication and partial-failure tests remain passing. |
+| Google Sheets attendance sync | **Not run** — no independent OAuth client or synthetic sheet is configured. |
+| Staging cron isolation | **Verified inactive for current deployment** — it is Preview-targeted, and Vercel Cron runs only for production-target deployments. Keep it that way until synthetic integration setup is verified. |
+| Staging vs production isolation | **Blob and Redis boundaries verified** — distinct test store IDs; both integrations are connected only to the test project, whose integration credentials are scoped to its own Production and Preview environments. Coach credentials are Preview-only; OAuth and synthetic sheet credentials are not configured. |
+
+Before hosted acceptance, record non-secret evidence: project ID, deployment ID and SHA, test and production Blob store IDs (not tokens), environment variable names and scopes, Google test project/sheet identifiers, cron target, and SSO check. Run hosted acceptance only against the confirmed staging hostname using synthetic data and staging credentials.
+
+## Physical-device acceptance checklist
+
+Physical Android and iPhone devices were not available in this run. Device validation remains **incomplete**. On each device, use the verified staging URL and synthetic coach account:
+
+1. Open coach sign-in; confirm layout at portrait and landscape sizes and sign in/out.
+2. Install the PWA (Android Chrome: install prompt/menu; iPhone Safari: Share → Add to Home Screen); open the installed app.
+3. Load the athlete page and coach dashboard online; save a synthetic daily-plan edit and confirm it persists after reload.
+4. Go offline, relaunch the installed app, and confirm the cached shell loads without showing stale private API data as current.
+5. Reconnect; confirm the network state recovers, current content refreshes, and a failed unsaved coach edit has a clear recovery path.
+6. Publish a synthetic workout; verify it appears anonymously on the athlete page after the configured release time.
+7. Deploy a harmless staging-only asset/app revision; confirm the installed app updates and reloads without losing the authenticated coach workflow.
+8. Record device model, OS/browser version, staging deployment SHA, pass/fail, and screenshots without real athlete information.
+
+## Planning workflow finding
+
+The intended source-of-truth model documented in `docs/DAILY_PLAN_SYNC.md` is that the Google Drive Planning Workbook is authoritative for the **Daily Plan**, while the app serves a manually promoted private cached snapshot in `teamOps.trainingPlan`. Console `plan`/`seasons` records are stored separately and do not automatically overwrite that workbook-derived daily snapshot. A daily session edit mirrors its same-date changes into matching `plan`/`seasons` sessions, but a console season edit does not update `teamOps.trainingPlan`. There is a third path: the Season screen reads `teamOps.seasonArc` or falls back to the daily snapshot; it does not directly read console `plan`/`seasons`. The separation is supported by the current code and may be intentional, but coaches could expect the console editor to drive these live views. No source mapping or merge behavior was changed. The Executive Owner should confirm whether console `plan`/`seasons` is intended as a separate draft/archive path or should populate the displayed season arc before any synchronization change is made.
+
+## Security and QA assessment
+
+The new code removes the known process-local-throttling risk by requiring an external atomic shared counter and includes a bounded account-wide failed-attempt bucket to limit distributed guessing. Synthetic suite: **PASS, 50/50**. Independent review found no critical issue; review resulted in the additional account bucket and expanded provider-failure tests. [Vercel's request-header documentation](https://vercel.com/docs/headers/request-headers) says it overwrites `x-forwarded-for` by default to prevent IP spoofing; the limiter uses that header's first address. Confirm any project proxy/header customization preserves that guarantee during hosted acceptance. Hosted Redis Lua execution and rate-limit/recovery behavior remain unverified until the updated staging deployment and independent coach identity are configured. Existing signed sessions remain stateless until expiry or signing-secret rotation, as recorded in Assignment 003.
+
+**Recommendation:** do not release to production. Complete the remaining hosted synthetic-service tests and physical-device checks, review and rotate the temporary Preview-only coach credentials before acceptance, and obtain final Executive Owner approval before any later production decision. The synthetic Google integration and workbook remain unconfigured. Do not merge or deploy to production as part of this assignment.
+
+
+## Assignment 005 — Authentication failure follow-up
+
+Date: 2026-10-15. PR #13 remained open and draft. The current PR head was updated to include the correction and route regression test; record-only report edits follow. No production deployment, merge, production data access, or automatic release approval occurred.
+
+**Root cause confirmed against the PR head:** `api/console.js` calls `loginRateLimit.configured()` before checking credentials, but `api/lib/login-rate-limit.js` exported only `consume`, `reset`, the factory, and constants. The missing function caused a `TypeError`, which the route's outer catch converted to `500 {"error":"console unavailable"}`. The existing route test overwrote `configured`, `consume`, and `reset`, masking the production module-interface defect.
+
+**Correction and regression coverage:** the limiter now exports `configured()` as a delegate to the existing default limiter. The route test loads the actual production module unchanged and replaces only the Redis HTTP transport with a synthetic implementation. It verifies a bad password returns 401, missing Redis configuration fails closed with 503, Redis errors return sanitized 503, valid credentials authenticate even after the limit is reached, all counters reset on valid login, and no password or internal exception detail is returned to clients. Review of imported names against library exports found no other mismatch.
+
+**Local verification:** `npm test` passed **50/50 tests** after these changes. The suite covers limiter behavior, route responses, session handling, Blob/CAS flows, and existing regressions. No authentication path produced an unhandled exception.
+
+**Preview evidence:** Vercel automatically created READY deployment `dpl_B44GncRhvL3MCVvXnJHsgK1GEgzf` for corrected application commit `1cccdfc5f523881f4b3cff70976f2e1d212d7c4b`, sourced from PR branch `codex/assignment-002-security-hardening`, in `iad1`. Deployment `target: null` and its branch alias identify the Preview deployment. It belongs to test project `prj_y3DJqXZEeUI88MTo9R1eo8oG4rQq`; SSO protection remains enabled. Coach values are scoped to that project's Preview environment. Redis and Blob variables point to test stores `store_4MtwzytQPylMqR4x` and `store_xeLwYP3quzmmSSUy`; the test Blob store ID differs from production's recorded ID. No production project or data was accessed.
+
+**Hosted QA is blocked before the first post-fix authentication attempt.** The SSO bypass-link request was rejected by automatic approval review because it would broaden access to the protected deployment, and I did not use a bypass. Opening the direct SSO-protected Preview in Edge was blocked because another extension UI is open. No post-fix login request was sent, so there is no response or correlation ID to record. Once normal SSO browser access is available, run exactly one controlled synthetic sign-in first; if it fails, capture the status, `x-vercel-id`/request ID, deployment SHA, and sanitized runtime diagnostics before retrying.
+
+After login passes, continue in order: logout/session handling; distributed limiting and recovery; authenticated synthetic Blob read/write; concurrent-write conflicts; draft save and athlete publication; publication failure recovery. Do not test Sheets without independent synthetic credentials and a workbook, or test physical devices before hosted functionality works.
+
+**Remaining Executive Owner decisions:** provide or approve the independent synthetic Google OAuth client and test workbook; confirm whether console `plan`/`seasons` should feed the displayed season arc; rotate the temporary coach values before acceptance; review hosted QA and device results and make the final release decision. Keep PR #13 in draft until all required criteria pass.
