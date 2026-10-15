@@ -6,7 +6,7 @@ Date: 2026-10-15. PR: [#12](https://github.com/fieldlogic-lab/sbu-crew-coach/pul
 
 ## Authentication throttling
 
-`api/lib/login-rate-limit.js` uses an HTTPS Redis REST service. An atomic Redis Lua `INCR`/`EXPIRE` operation is shared across Vercel instances; no process memory is used for enforcement. It tracks a per-client bucket plus a per-client/username bucket using HMAC-derived keys, so usernames and IP addresses are not stored as Redis key text. The limit is five login attempts per 15-minute window. A correct login clears both buckets. Requests beyond the limit receive `429` with `Retry-After`; absent or unavailable limiter configuration returns `503` before checking credentials, so the application does not silently fall back to an ineffective local limiter. A successful login still issues the existing scoped, secure session cookie.
+`api/lib/login-rate-limit.js` uses an HTTPS Redis REST service. A single atomic Redis Lua operation increments per-client, per-client/username, and per-username counters shared across Vercel instances; no process memory is used. HMAC-derived keys avoid storing usernames or IP addresses as Redis key text. Failed attempts are limited to five per client and per client/username, plus a conservative 20 per username across clients, all in a 15-minute window. Only bad credentials count. A correct login remains available even when counters are at their limits and clears all three buckets, avoiding a counter-based lockout for the valid coach. Excess bad attempts receive `429` with `Retry-After`; absent or unavailable limiter configuration returns `503` before checking credentials, so the application does not silently fall back to an ineffective local limiter. A successful login still issues the existing scoped, secure session cookie.
 
 Required Vercel settings for **each isolated application environment**:
 
@@ -16,7 +16,7 @@ Required Vercel settings for **each isolated application environment**:
 
 Do not reuse production Redis credentials or database. Provisioning the Redis database and token requires Executive Owner approval. The chosen fixed window can allow a short burst across a window boundary; it does not permanently lock the coach account. Hosted provider behavior, latency, availability, and configured Vercel forwarding headers remain to be verified.
 
-Automated synthetic validation: `npm test` passed **42/42 tests**, including limit enforcement across usernames sharing an IP bucket, expiry recovery, successful-login reset, fail-closed storage/configuration behavior, route-level `429`/`503`, and the existing coach/Blob/PWA regression suite. Tests use a mock shared Redis REST endpoint; they do not prove a hosted Redis deployment.
+Automated synthetic validation: `npm test` passed **49/49 tests**, including shared-IP enforcement, a per-account ceiling across many client IPs, expiry recovery, successful-login reset even when counters are at the ceiling, Redis network/HTTP/provider/malformed-response failures, route-level `429`/`503`, and the existing coach/Blob/PWA regression suite. Tests use a mock Redis REST endpoint; they do not prove a hosted Redis deployment.
 
 ## Staging infrastructure status
 
@@ -68,7 +68,7 @@ The intended source-of-truth model documented in `docs/DAILY_PLAN_SYNC.md` is th
 
 ## Security and QA assessment
 
-The new code removes the known process-local-throttling risk by requiring an external atomic shared counter. Synthetic suite: **PASS, 42/42**. Independent review is in progress. Outstanding security gates are provisioning and verifying the distributed Redis service, hosted rate-limit/recovery behavior, store/credential separation, and review of cron/OAuth isolation. Existing signed sessions remain stateless until expiry or signing-secret rotation, as recorded in Assignment 003.
+The new code removes the known process-local-throttling risk by requiring an external atomic shared counter and includes a bounded account-wide failed-attempt bucket to limit distributed guessing. Synthetic suite: **PASS, 49/49**. Independent review found no critical issue; review resulted in the additional account bucket and expanded provider-failure tests. Outstanding security gates are provisioning and verifying the distributed Redis service, hosted rate-limit/recovery behavior, store/credential separation, and review of cron/OAuth isolation. Existing signed sessions remain stateless until expiry or signing-secret rotation, as recorded in Assignment 003.
 
-**Recommendation:** do not release to production. Approve and configure isolated staging resources, deploy the reviewed PR SHA only to the test project, complete hosted synthetic-service tests and physical-device checks, and obtain an independent security/QA review before Executive Owner acceptance and any later production decision. Do not merge or deploy to production as part of this assignment.
+**Recommendation:** do not release to production. Finish independent staging credentials and isolated integration setup, complete hosted synthetic-service tests and physical-device checks, and obtain final Executive Owner acceptance before any later production decision. Do not merge or deploy to production as part of this assignment.
 
