@@ -7,7 +7,10 @@ import { renderPlanView, renderSeasonView } from '/js/views/planning.js';
 
 async function boot(){
   const access=await fetch('/api/console',{credentials:'same-origin'});
-  window.__coachData=access.ok?await access.json():{};
+  if(access.status===401){window.location.replace('/console.html');return}
+  if(!access.ok)throw new Error('Unable to load the private coach record');
+  window.__coachEtag=access.headers.get('etag')||'';
+  window.__coachData=await access.json();
 }
 
 boot().then(()=>{
@@ -136,8 +139,22 @@ async function saveSession(date){
   if(status)status.textContent='Saving...';
   if(button)button.disabled=true;
   try{
-    const response=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'update-session',date,values})});
+    const response=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','if-match':window.__coachEtag||''},body:JSON.stringify({action:'update-session',date,values})});
+    if(response.status===412){
+      if(status){
+        status.replaceChildren(document.createTextNode('Conflict: the saved plan changed. '));
+        const recovery=document.createElement('a');
+        recovery.className='save-status';
+        recovery.textContent='Download these edits';
+        recovery.download=`sbu-session-${date}-recovery.json`;
+        recovery.href=URL.createObjectURL(new Blob([JSON.stringify({date,values},null,2)],{type:'application/json'}));
+        status.append(recovery);
+      }
+      return;
+    }
+    if(response.status===401){if(status)status.textContent='Sign in again to save';return}
     if(!response.ok)throw Error();
+    window.__coachEtag=response.headers.get('etag')||window.__coachEtag;
     const data=await response.json();
     teamOps=mergeTeamOps(defaultTeamOps,data.teamOps||teamOps);
     applySessionEdit(date,values);
@@ -145,7 +162,15 @@ async function saveSession(date){
     setTimeout(()=>{if(status)status.textContent=''},1600);
   }catch{
     applySessionEdit(date,values);
-    if(status)status.textContent='Saved on this phone only - reconnect storage to publish';
+    if(status){
+      status.replaceChildren(document.createTextNode('Save failed. These edits are only in this page. '));
+      const recovery=document.createElement('a');
+      recovery.className='save-status';
+      recovery.textContent='Download recovery JSON';
+      recovery.download=`sbu-session-${date}-recovery.json`;
+      recovery.href=URL.createObjectURL(new Blob([JSON.stringify({date,values},null,2)],{type:'application/json'}));
+      status.append(recovery);
+    }
   }finally{
     if(button)button.disabled=false;
   }

@@ -6,8 +6,18 @@
   <link rel="stylesheet" href="/console.css"><style>.panel-actions{display:flex;gap:8px;align-items:center}.panel-actions select{border:1px solid #9ca7af;border-radius:7px;padding:10px;background:#fff;font:inherit;font-weight:750}.control-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;background:#fff;border:1px solid #d9dde0;border-radius:8px;padding:18px}.control-list label{display:grid;gap:5px;color:#66717c;font-size:12px;font-weight:800}.control-list input{border:1px solid #bcc5ca;border-radius:6px;padding:10px;font:inherit;color:#101820}@media(max-width:760px){.panel-actions{align-items:stretch;flex-direction:column}.control-list{grid-template-columns:1fr}}</style>
 </head>
 <body>
-  <header class="topbar"><a class="back" href="/">← Coach App</a><div><p class="eyebrow">PRIVATE COACH CONSOLE</p><h1>Season control room</h1></div><div class="top-actions"><span id="save-state" class="save-state">Loading…</span><button id="save" class="button dark">Save draft</button><button id="publish" class="button red">Publish</button></div></header>
+  <header class="topbar"><a class="back" href="/">← Coach App</a><div><p class="eyebrow">PRIVATE COACH CONSOLE</p><h1>Season control room</h1></div><div class="top-actions"><span id="save-state" class="save-state" aria-live="polite">Loading…</span><button id="download-recovery" class="button dark" hidden>Download recovery copy</button><button id="save" class="button dark" hidden>Save draft</button><button id="publish" class="button red" hidden>Publish</button><button id="logout" class="button dark" hidden>Log out</button></div></header>
   <main class="shell">
+    <section id="login-panel" class="login-panel card" hidden>
+      <p class="eyebrow">COACH ACCESS</p><h2>Sign in to the private console</h2>
+      <form id="login-form" autocomplete="on">
+        <label>Coach username<input id="login-username" name="username" autocomplete="username" required></label>
+        <label>Password<input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
+        <p id="login-error" class="error" role="alert" aria-live="polite"></p>
+        <button class="button red" type="submit">Sign in</button>
+      </form>
+    </section>
+    <section id="access-error" class="login-panel card" hidden><p id="access-error-message" class="error" role="alert"></p></section>
     <section id="console" hidden>
       <div class="intro"><div><p class="eyebrow">ONE SOURCE OF TRUTH</p><h2>Shape the season without touching the layout.</h2></div><p>Edit the content records here. The Coach App and public site remain separate experiences, but they can read the same published records.</p></div>
       <div class="tabs"><button class="tab active" data-panel="season-panel">Season plan <span id="session-count"></span></button><button class="tab" data-panel="sources-panel">Team sources</button><button class="tab" data-panel="lineups-panel">Lineups</button><button class="tab" data-panel="content-panel">Public content <span id="content-count"></span></button><button class="tab" data-panel="history-panel">Version history</button><button class="tab" data-panel="controls-panel">Site controls</button></div>
@@ -20,7 +30,7 @@
     </section>
   </main>
   <template id="session-template"><article class="editor-card session-card"><div class="card-top"><span class="record-label">SESSION</span><button class="remove" type="button">Remove</button></div><div class="field-grid"><label>Date<input data-key="date" type="date"></label><label>Title<input data-key="title"></label><label>Training block<input data-key="block"></label><label>Delivery<select data-key="sessionType"><option value="land">Land</option><option value="water">Water</option><option value="flexible">Flexible</option><option value="operations">Operations</option><option value="event">Event</option></select></label><label>Practice status<select data-key="practiceStatus"><option value="forecast">Forecast only</option><option value="water">Coach: water</option><option value="land">Coach: land</option><option value="canceled">Canceled</option></select></label></div><label>Intent<textarea data-key="intent"></textarea></label><label>Workout<textarea data-key="workout"></textarea></label><label>Coach cue<textarea data-key="cue"></textarea></label><label>Land plan<textarea data-key="land"></textarea></label><details class="custom-fields"><summary>Custom fields</summary><textarea data-key="custom" placeholder='{"equipment":"...","duration":"..."}'></textarea></details></article></template>
-  <script src="/console.js?v=20260916a"></script>
+  <script src="/console.js?v=20261015-auth1"></script>
 </body>
 </html>
 

@@ -1,20 +1,16 @@
-const { put, get } = require('@vercel/blob');
+const { readBlob: readVersionedBlob, writeBlob: writeVersionedBlob, updateDraft } = require('./draft-store');
 
 const TOKEN_BLOB = 'coach-content/google-oauth.json';
 const DRAFT_BLOB = 'coach-content/draft.json';
 
 async function readBlob(pathname) {
-  const result = await get(pathname, { access: 'private' });
-  if (!result || !result.stream) return null;
-  return new Response(result.stream).json();
+  const result = await readVersionedBlob(pathname);
+  return result?.data ?? null;
 }
 
 async function writeBlob(pathname, data) {
-  await put(pathname, JSON.stringify(data), {
-    access: 'private',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+  const current = await readVersionedBlob(pathname);
+  await writeVersionedBlob(pathname, data, current ? { etag: current.etag } : { ifNoneMatch: '*' });
 }
 
 function requiredEnv(name) {
@@ -128,31 +124,24 @@ async function fetchAttendanceSheet() {
 }
 
 async function refreshAttendance() {
-  const current = await readBlob(DRAFT_BLOB);
-  if (!current) throw new Error('draft not found');
   const { athletes, practiceDates, sheetName } = await fetchAttendanceSheet();
   if (!athletes.length) throw new Error('attendance sheet returned no athletes');
   const now = new Date().toISOString();
-  current.teamOps = current.teamOps || {};
-  current.teamOps.attendance = {
-    ...(current.teamOps.attendance || {}),
-    athletes,
-    practiceDates,
-  };
-  current.teamOps.sources = current.teamOps.sources || {};
-  current.teamOps.sources.attendance = {
-    ...(current.teamOps.sources.attendance || {}),
-    kind: 'attendance',
-    title: '26-27 Attendance',
-    status: 'connected',
-    lastReadAt: now,
-    sheet: sheetName,
-  };
-  current.history = [
-    { label: 'Refreshed attendance from Google Sheets', at: now, kind: 'attendance-refresh' },
-    ...(current.history || []),
-  ].slice(0, 20);
-  await writeBlob(DRAFT_BLOB, current);
+  const current = await updateDraft(data => {
+    data.teamOps = data.teamOps || {};
+    data.teamOps.attendance = { ...(data.teamOps.attendance || {}), athletes, practiceDates };
+    data.teamOps.sources = data.teamOps.sources || {};
+    data.teamOps.sources.attendance = {
+      ...(data.teamOps.sources.attendance || {}), kind: 'attendance', title: '26-27 Attendance',
+      status: 'connected', lastReadAt: now, sheet: sheetName,
+    };
+    data.history = [
+      { label: 'Refreshed attendance from Google Sheets', at: now, kind: 'attendance-refresh' },
+      ...(data.history || []),
+    ].slice(0, 20);
+    return data;
+  });
+  if (!current) throw new Error('draft not found');
   return { athletes: athletes.length, practiceDates: practiceDates.length, lastReadAt: now, sheetName };
 }
 

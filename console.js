@@ -10,6 +10,7 @@ const defaultTeamOps={
   lineups:{drafts:[]}
 };
 const state={plan:{season:'Fall 2026',phases:[],sessions:[]},seasons:{},content:{resources:[]},controls:{},teamOps:structuredClone(defaultTeamOps),history:[],dirty:false};
+let draftETag='';
 const $=s=>document.querySelector(s);
 
 function setStatus(t){$('#save-state').textContent=t}
@@ -126,47 +127,54 @@ function renderLineups(){
 }
 function renderAll(){renderSeasons();renderSessions();renderContent();renderControls();renderHistory();renderTeamSources();renderLineups()}
 async function load(){
-  try{
-    const r=await fetch('/api/console',{credentials:'same-origin'});
-    if(r.ok){
-      const d=await r.json();
-      if(d.plan){
-        Object.assign(state,d);
-        state.teamOps=mergeTeamOps(d.teamOps);
-        state.seasons=d.seasons||{[d.plan.season||'Fall 2026']:d.plan};
-        state.plan=state.seasons[state.plan.season]||d.plan;
-        setStatus('Connected');
-        return 'connected';
-      }
-      const content=await fetch(PUBLIC+'/content.json').then(r=>r.json());
-      state.content=content;
-      state.seasons={};
-      state.plan={season:'Fall 2026',phases:[],sessions:[]};
-      state.teamOps=mergeTeamOps();
-      setStatus('Connected · schedule not published');
-      return 'connected';
-    }
-  }catch{}
-  setStatus('Offline · local draft only');
-  return 'connected';
-}
-function saveLocal(kind='Draft saved'){
-  localStorage.setItem('coach-console-draft',JSON.stringify({plan:state.plan,content:state.content,history:state.history,teamOps:state.teamOps}));
-  state.dirty=false;
-  setStatus(kind);
+  const r=await fetch('/api/console',{credentials:'same-origin'});
+  if(r.status===401){$('#login-panel').hidden=false;$('#console').hidden=true;$('#save').hidden=true;$('#publish').hidden=true;$('#logout').hidden=true;setStatus('Sign in required');return false}
+  if(!r.ok)throw Error(r.status===503?'Coach authentication is not configured on the server.':'Coach console is unavailable.');
+  draftETag=r.headers.get('etag')||'';
+  const d=await r.json();
+  if(d.plan){
+    Object.assign(state,d);
+    state.teamOps=mergeTeamOps(d.teamOps);
+    state.seasons=d.seasons||{[d.plan.season||'Fall 2026']:d.plan};
+    state.plan=state.seasons[state.plan.season]||d.plan;
+    setStatus('Connected');
+  }else{
+    const content=await fetch(PUBLIC+'/content.json').then(r=>r.json());
+    state.content=content;
+    state.seasons={};
+    state.plan={season:'Fall 2026',phases:[],sessions:[]};
+    state.teamOps=mergeTeamOps();
+    setStatus('Connected · schedule not published');
+  }
+  $('#login-panel').hidden=true;$('#access-error').hidden=true;$('#console').hidden=false;$('#save').hidden=false;$('#publish').hidden=false;$('#logout').hidden=false;
+  renderAll();
+  return true;
 }
 async function save(publish=false){
   setStatus(publish?'Publishing…':'Saving…');
   try{
     state.seasons[state.plan.season]=state.plan;
-    const r=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:publish?'publish':'draft',plan:state.plan,seasons:state.seasons,content:state.content,controls:state.controls,teamOps:state.teamOps,history:state.history})});
+    const headers={'content-type':'application/json'};
+    if(draftETag)headers['if-match']=draftETag;else headers['if-none-match']='*';
+    const r=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers,body:JSON.stringify({action:publish?'publish':'draft',plan:state.plan,seasons:state.seasons,content:state.content,controls:state.controls,teamOps:state.teamOps,history:state.history})});
+    if(r.status===412){
+      draftETag=r.headers.get('etag')||draftETag;
+      const result=await r.json().catch(()=>({}));
+      setStatus(result.code==='PUBLISH_CONFLICT'?'Draft saved · publication needs a retry':'Draft changed elsewhere · edits retained');
+      $('#download-recovery').hidden=false;
+      if(result.code==='PUBLISH_CONFLICT')alert('Your draft was saved, but another publication changed at the same time. Review the saved draft, then publish again.');
+      return;
+    }
+    if(r.status===401){await load();return}
     if(!r.ok)throw Error();
+    draftETag=r.headers.get('etag')||draftETag;
+    $('#download-recovery').hidden=true;
     Object.assign(state,await r.json());
     state.teamOps=mergeTeamOps(state.teamOps);
     state.dirty=false;
     setStatus(publish?'Published':'Draft saved');
     renderHistory();
-  }catch{saveLocal(publish?'Saved locally — connect storage to publish':'Saved locally')}
+  }catch{setStatus('Save failed — edits retained');alert('The save failed. Your edits are still on this page; check your connection and try again.')}
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!==t.dataset.panel)});
 $('#add-session').onclick=()=>{state.plan.sessions.push({date:'',title:'New session',block:'',intent:'',workout:'',cue:'',land:'',custom:{todayMessage:'',novicePlan:'',varsityPlan:'',landFallback:'',technicalFocus:'',coachingCues:'',successCriteria:'',intensity:''}});renderSessions();setDirty()};
@@ -174,8 +182,22 @@ $('#add-content').onclick=()=>{state.content.resources.push({title:'New resource
 $('#add-lineup').onclick=()=>{state.teamOps.lineups.drafts=state.teamOps.lineups.drafts||[];state.teamOps.lineups.drafts.unshift({name:'New 8+ draft',boatClass:'8+',status:'draft',seats:{Cox:'',8:'',7:'',6:'',5:'',4:'',3:'',2:'',Bow:''},notes:''});renderLineups();setDirty()};
 $('#save').onclick=()=>save(false);
 $('#publish').onclick=()=>save(true);
-(async()=>{
-  await load();
-  $('#console').hidden=false;
-  renderAll();
-})().catch(()=>{$('#console').hidden=false;setStatus('Offline · local draft only');renderAll()});
+$('#download-recovery').onclick=()=>{
+  const payload={savedAt:new Date().toISOString(),plan:state.plan,seasons:state.seasons,content:state.content,controls:state.controls,teamOps:state.teamOps,history:state.history};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download=`coach-draft-recovery-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;link.click();URL.revokeObjectURL(url);
+};
+$('#login-form').addEventListener('submit',async event=>{
+  event.preventDefault();$('#login-error').textContent='';
+  try{
+    const response=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'login',username:$('#login-username').value,password:$('#login-password').value})});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw Error(result.error||'Sign in failed.')}
+    $('#login-password').value='';
+    await load();
+  }catch(error){$('#login-error').textContent=error.message||'Sign in failed.'}
+});
+$('#logout').onclick=async()=>{
+  await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'logout'})}).catch(()=>{});
+  state.dirty=false;draftETag='';$('#console').hidden=true;$('#login-panel').hidden=false;$('#logout').hidden=true;$('#save').hidden=true;$('#publish').hidden=true;setStatus('Signed out');
+};
+(async()=>{try{await load()}catch(error){$('#access-error-message').textContent=error.message||'Coach console is unavailable.';$('#access-error').hidden=false;setStatus('Unavailable')}})();

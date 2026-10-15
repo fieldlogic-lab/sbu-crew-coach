@@ -16,9 +16,11 @@ module.exports = async (req, res) => {
     res.setHeader('cache-control', 'no-store');
     res.end(JSON.stringify({ ok: true, ...result }));
   } catch (error) {
-    res.statusCode = 500;
+    res.statusCode = error?.statusCode === 412 ? 412 : 500;
     res.setHeader('content-type', 'application/json');
     res.setHeader('cache-control', 'no-store');
-    res.end(JSON.stringify({ error: 'attendance refresh failed', detail: error.message }));
+    res.end(JSON.stringify(error?.statusCode === 412
+      ? { error: 'draft conflict', code: 'DRAFT_CONFLICT' }
+      : { error: 'attendance refresh failed', detail: error.message }));
   }
 };

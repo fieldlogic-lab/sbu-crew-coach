@@ -1,4 +1,8 @@
-const { put, get } = require('@vercel/blob');
+const { readDraft, writeDraft, readBlob, writeBlob } = require('./lib/draft-store');
+const {
+  getCoachConfig, safeEqual, createSessionToken, sessionCookie, clearSessionCookie,
+  isCoachRequest, hasServiceCredential,
+} = require('./lib/coach-auth');
 
 function json(res, status, body, headers = {}) {
   res.statusCode = status;
@@ -7,24 +11,11 @@ function json(res, status, body, headers = {}) {
     'cache-control': 'no-store',
     'access-control-allow-origin': 'https://www.rtpny.com',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers': 'content-type',
+    'access-control-allow-headers': 'content-type,if-match,if-none-match',
+    'access-control-expose-headers': 'etag',
     ...headers,
   }).forEach(([key, value]) => res.setHeader(key, value));
   res.end(JSON.stringify(body));
-}
-
-async function readBlob(pathname) {
-  const result = await get(pathname, { access: 'private' });
-  if (!result || !result.stream) return null;
-  return new Response(result.stream).json();
-}
-
-async function writeBlob(pathname, data) {
-  await put(pathname, JSON.stringify(data), {
-    access: 'private',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
 }
 
 async function parseBody(req) {
@@ -160,28 +151,56 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
       const view = new URL(req.url, 'https://localhost').searchParams.get('view');
       if (view === 'published') {
-        const data = await readBlob('coach-content/published.json');
+        const result = await readBlob('coach-content/published.json');
+        const data = result?.data;
         return data ? json(res, 200, { content: data.content, controls: data.controls || {} }) : json(res, 404, { error: 'not published' });
       }
       if (view === 'athlete') {
-        const data = await readBlob('coach-content/published.json');
+        const result = await readBlob('coach-content/published.json');
+        const data = result?.data;
         return data ? json(res, 200, athletePayload(data)) : json(res, 404, { error: 'not published' });
       }
       if (view === 'tv') {
-        const data = await readBlob('coach-content/published.json');
+        const result = await readBlob('coach-content/published.json');
+        const data = result?.data;
         return data ? json(res, 200, tvPayload(data), { 'access-control-allow-origin': '*' }) : json(res, 404, { error: 'not published' });
       }
-      const data = await readBlob('coach-content/draft.json');
-      if (data) return json(res, 200, data);
+      const coachConfig = getCoachConfig();
+      if (!coachConfig.configured) return json(res, 503, { error: 'coach authentication is not configured' });
+      if (hasServiceCredential(req) || !isCoachRequest(req, coachConfig)) return json(res, 401, { error: 'coach authentication required' });
+      const result = await readDraft();
+      const data = result?.data;
+      if (data) return json(res, 200, data, { etag: result.etag });
       return json(res, 200, { plan: null, content: null, history: [] });
     }
 
     const body = await parseBody(req);
-    if (body.action === 'login') return json(res, 200, { ok: true });
+    if (body.action === 'login') {
+      const config = getCoachConfig();
+      if (!config.configured) return json(res, 503, { error: 'coach authentication is not configured' });
+      if (hasServiceCredential(req) || !safeEqual(body.username || '', config.username) || !safeEqual(body.password || '', config.password)) {
+        return json(res, 401, { error: 'invalid coach credentials' });
+      }
+      return json(res, 200, { ok: true }, { 'set-cookie': sessionCookie(createSessionToken(config.username, config.secret)) });
+    }
+    if (body.action === 'logout') {
+      return json(res, 200, { ok: true }, { 'set-cookie': clearSessionCookie() });
+    }
+    const coachConfig = getCoachConfig();
+    if (!coachConfig.configured) return json(res, 503, { error: 'coach authentication is not configured' });
+    if (hasServiceCredential(req) || !isCoachRequest(req, coachConfig)) return json(res, 401, { error: 'coach authentication required' });
 
     if (body.action === 'draft' || body.action === 'publish') {
+      const draftResult = await readDraft();
+      const expected = draftResult?.etag;
+      const supplied = req.headers?.['if-match'];
+      const createRequested = !draftResult && req.headers?.['if-none-match'] === '*';
+      if ((expected && supplied !== expected) || (!expected && !createRequested)) {
+        return json(res, 412, { error: 'draft conflict', code: 'DRAFT_CONFLICT' });
+      }
       const now = new Date().toISOString();
       const data = {
+        ...(draftResult?.data || {}),
         plan: body.plan,
         seasons: body.seasons || { [body.plan?.season || 'Fall 2026']: body.plan },
         content: body.content,
@@ -189,37 +208,50 @@ module.exports = async (req, res) => {
         teamOps: body.teamOps || {},
         history: [
           { label: body.action === 'publish' ? 'Published season' : 'Saved draft', at: now, kind: body.action },
-          ...(body.history || []),
+          ...(draftResult?.data?.history || []),
         ].slice(0, 20),
       };
-      await writeBlob(`coach-content/${body.action === 'publish' ? 'published' : 'draft'}.json`, data);
-      return json(res, 200, data);
+      if (body.action === 'publish') {
+        const savedDraft = await writeDraft(data, expected ? { etag: expected } : { ifNoneMatch: '*' });
+        const published = await readBlob('coach-content/published.json');
+        try {
+          await writeBlob('coach-content/published.json', data, published?.etag ? { etag: published.etag } : { ifNoneMatch: '*' });
+        } catch (error) {
+          if (error?.code === 'DRAFT_CONFLICT' || error?.statusCode === 412) {
+            return json(res, 412, {
+              error: 'Draft was saved, but publication did not complete because the published version changed.',
+              code: 'PUBLISH_CONFLICT',
+              draftSaved: true,
+            }, savedDraft?.etag ? { etag: savedDraft.etag } : {});
+          }
+          throw error;
+        }
+      } else {
+        await writeDraft(data, expected ? { etag: expected } : { ifNoneMatch: '*' });
+      }
+      const updated = await readDraft();
+      // The body and validator must describe the same Blob version. A sync
+      // write may land after our save and before this read.
+      return json(res, 200, updated?.data || data, updated?.etag ? { etag: updated.etag } : {});
     }
 
     if (body.action === 'update-session') {
-      const data = await readBlob('coach-content/draft.json');
+      const current = await readDraft();
+      const data = current?.data;
       if (!data) return json(res, 404, { error: 'draft not found' });
+      if (!current.etag || req.headers?.['if-match'] !== current.etag) {
+        return json(res, 412, { error: 'draft conflict', code: 'DRAFT_CONFLICT' });
+      }
       const date = String(body.date || '');
       const values = body.values || {};
-
+      if (!(data.teamOps?.trainingPlan?.sessions || []).some(item => item.date === date)) return json(res, 404, { error: 'session not found' });
       data.teamOps = data.teamOps || {};
       data.teamOps.trainingPlan = data.teamOps.trainingPlan || { sessions: [] };
-      const updatedTraining = updateSessionList(data.teamOps.trainingPlan.sessions, date, values);
-      data.teamOps.trainingPlan.sessions = updatedTraining.sessions;
-
-      if (data.plan?.sessions?.length) {
-        const updatedPlan = updateSessionList(data.plan.sessions, date, values);
-        data.plan.sessions = updatedPlan.sessions;
-      }
+      data.teamOps.trainingPlan.sessions = updateSessionList(data.teamOps.trainingPlan.sessions, date, values).sessions;
+      if (data.plan?.sessions?.length) data.plan.sessions = updateSessionList(data.plan.sessions, date, values).sessions;
       for (const season of Object.values(data.seasons || {})) {
-        if (season?.sessions?.length) {
-          const updatedSeason = updateSessionList(season.sessions, date, values);
-          season.sessions = updatedSeason.sessions;
-        }
+        if (season?.sessions?.length) season.sessions = updateSessionList(season.sessions, date, values).sessions;
       }
-
-      if (!updatedTraining.found) return json(res, 404, { error: 'session not found' });
-
       data.teamOps.sources = data.teamOps.sources || {};
       data.teamOps.sources.dailyTrainingPlan = {
         ...(data.teamOps.sources.dailyTrainingPlan || {}),
@@ -232,13 +264,16 @@ module.exports = async (req, res) => {
         { label: 'Updated Daily Plan session', at: new Date().toISOString(), kind: 'update-session', date },
         ...(data.history || []),
       ].slice(0, 20);
-
-      await writeBlob('coach-content/draft.json', data);
-      return json(res, 200, data);
+      await writeDraft(data, { etag: current.etag });
+      const latest = await readDraft();
+      return json(res, 200, latest?.data || data, latest?.etag ? { etag: latest.etag } : {});
     }
 
     return json(res, 400, { error: 'unknown action' });
   } catch (error) {
+    if (error?.code === 'DRAFT_CONFLICT' || error?.statusCode === 412) {
+      return json(res, 412, { error: 'draft conflict', code: 'DRAFT_CONFLICT' });
+    }
     return json(res, 500, { error: 'console unavailable' });
   }
 };

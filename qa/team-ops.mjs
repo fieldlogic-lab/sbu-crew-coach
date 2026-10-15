@@ -28,7 +28,7 @@ assert.match(teamView,/Cox',\s*'8',\s*'7',\s*'6',\s*'5',\s*'4',\s*'3',\s*'2',\s*
 assert.match(api,/teamOps:\s*body\.teamOps\s*\|\|\s*\{\}/,'coach API should preserve private Team Ops data');
 assert.match(api,/action === 'update-session'/,'coach API should support narrow Daily Plan session edits');
 assert.match(api,/content:\s*data\.content,\s*controls:\s*data\.controls\s*\|\|\s*\{\}/,'published public view should remain filtered');
-assert.match(attendanceApi,/ATTENDANCE_SYNC_TOKEN/,'attendance sync should require the private sync token');
+assert.match(attendanceApi,/authorizedAttendanceRequest/,'attendance sync should require the scoped service credential');
 assert.match(attendanceApi,/normalizeRows/,'attendance sync should normalize student sheet rows');
 assert.match(weather,/WIND_LIMITS/,'weather should use rowing wind thresholds');
 assert.match(weather,/tone:\s*'favorable'/,'weather should expose favorable status color');
