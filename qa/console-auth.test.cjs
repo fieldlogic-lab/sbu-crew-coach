@@ -6,6 +6,12 @@ process.env.COACH_PASSWORD = 'synthetic-password';
 process.env.COACH_SESSION_SECRET = 'synthetic-session-secret-with-at-least-thirty-two-bytes';
 
 const store = require('../api/lib/draft-store');
+const limiter = require('../api/lib/login-rate-limit');
+let rateLimited = false;
+let limiterUnavailable = false;
+limiter.configured = () => !limiterUnavailable;
+limiter.consume = async () => ({ allowed: !rateLimited, remaining: rateLimited ? 0 : 4 });
+limiter.reset = async () => {};
 let draft = { plan: { season: 'Synthetic', sessions: [] }, seasons: {}, content: { resources: [] }, teamOps: { trainingPlan: { sessions: [{ date: '2099-01-01', workout: 'old' }] } }, history: [] };
 let etag = '"draft-v1"';
 let afterDraftWrite;
@@ -43,6 +49,8 @@ test('anonymous private draft reads and writes are denied while athlete reads st
 });
 
 test('coach login sets signed cookie; authorized draft access works; attendance credential cannot use coach route', async () => {
+  rateLimited = false;
+  limiterUnavailable = false;
   const badLogin = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
   assert.equal(badLogin.statusCode, 401);
   const login = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
@@ -54,6 +62,18 @@ test('coach login sets signed cookie; authorized draft access works; attendance 
   assert.equal(read.headers.etag, etag);
   const service = await invoke('GET', '/api/console', undefined, { cookie, 'x-attendance-sync-token': 'synthetic-token' });
   assert.equal(service.statusCode, 401);
+});
+
+test('login route rejects throttled attempts and fails closed if shared limiter is unavailable', async () => {
+  rateLimited = true;
+  const blocked = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
+  assert.equal(blocked.statusCode, 429);
+  assert.equal(blocked.headers['retry-after'], String(limiter.WINDOW_SECONDS));
+  rateLimited = false;
+  limiterUnavailable = true;
+  const unavailable = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
+  assert.equal(unavailable.statusCode, 503);
+  limiterUnavailable = false;
 });
 
 test('authorized session updates reject stale edits and accept the current ETag', async () => {
