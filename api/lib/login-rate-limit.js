@@ -89,6 +89,7 @@ module.exports = {
   MAX_ATTEMPTS,
   MAX_ACCOUNT_ATTEMPTS,
   createLoginRateLimiter,
+  configured: (...args) => defaultLimiter.configured(...args),
   consume: (...args) => defaultLimiter.consume(...args),
   reset: (...args) => defaultLimiter.reset(...args),
 };
