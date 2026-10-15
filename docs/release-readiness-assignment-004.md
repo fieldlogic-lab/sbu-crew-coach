@@ -39,7 +39,7 @@ The private Blob and Redis stores and a clean Preview deployment are established
 | Requested validation | Status |
 |---|---|
 | Hosted coach login / logout | **Failed / incomplete** — a hosted sign-in attempt against a temporary credential-enabled Preview returned `500 console unavailable`, so successful authentication, Redis enforcement, and recovery could not be verified. After cleanup, the current Preview correctly returns `503 coach authentication is not configured`. Investigate the hosted `500`, then configure fresh Preview-only credentials and rerun. |
-| Private Blob read/write and separation from production | **Isolation verified; read/write test not run** — unique private test store is bound to the test project. Its athlete read endpoint returned expected `404` on an empty store. SDK write/read and CAS tests await coach auth setup. |
+| Private Blob read/write and separation from production | **Isolation verified; empty-store read verified; write not run** — the isolated athlete read endpoint returned expected `404 not published`, confirming the request reached the empty private test store. A synthetic authenticated write/read and CAS check awaits resolving the hosted login failure. |
 | Concurrent update / conflict handling on hosted Blob | **Not run** — local synthetic CAS coverage remains; hosted Blob semantics are unverified. |
 | Athlete publication and error recovery | **Not run hosted** — the synthetic athlete endpoint correctly reports no publication on the empty test store; hosted publication/recovery awaits coach auth setup. Local synthetic publication and partial-failure tests remain passing. |
 | Google Sheets attendance sync | **Not run** — no independent OAuth client or synthetic sheet is configured. |
