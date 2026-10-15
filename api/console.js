@@ -212,8 +212,10 @@ module.exports = async (req, res) => {
         ].slice(0, 20),
       };
       if (body.action === 'publish') {
-        const savedDraft = await writeDraft(data, expected ? { etag: expected } : { ifNoneMatch: '*' });
+        // Capture the publication version before saving the draft. Reading it
+        // afterward could let an older request overwrite a newer publication.
         const published = await readBlob('coach-content/published.json');
+        const savedDraft = await writeDraft(data, expected ? { etag: expected } : { ifNoneMatch: '*' });
         try {
           await writeBlob('coach-content/published.json', data, published?.etag ? { etag: published.etag } : { ifNoneMatch: '*' });
         } catch (error) {
@@ -224,7 +226,12 @@ module.exports = async (req, res) => {
               draftSaved: true,
             }, savedDraft?.etag ? { etag: savedDraft.etag } : {});
           }
-          throw error;
+          return json(res, 503, {
+            error: 'Draft was saved, but publication could not be confirmed. Check the athlete view before retrying.',
+            code: 'PUBLISH_FAILED',
+            draftSaved: true,
+            publicationStatus: 'unknown',
+          }, savedDraft?.etag ? { etag: savedDraft.etag } : {});
         }
       } else {
         await writeDraft(data, expected ? { etag: expected } : { ifNoneMatch: '*' });

@@ -39,3 +39,13 @@ test('isolated smoke checks reject production Vercel credentials', () => {
     BLOB_READ_WRITE_TOKEN: 'synthetic-test-marker',
   }, /application or deployment credentials present/);
 });
+
+test('isolation attestations cannot enable an unverified hosted alias', () => {
+  rejectsWithoutNetwork({
+    TEST_ENVIRONMENT: 'isolated',
+    TEST_DATA_STORE_ISOLATED: 'true',
+    TEST_INTEGRATIONS_ISOLATED: 'true',
+    TEST_BASE_URL: 'https://unverified-preview.example.invalid',
+    TEST_PUBLIC_BASE_URL: 'https://unverified-preview.example.invalid',
+  }, /no hosted target has verified isolation/);
+});

@@ -21,11 +21,13 @@
   }
 
   function rounded(value, suffix = '') {
+    if (value === null || value === undefined || value === '') return '—';
     const number = Number(value);
     return Number.isFinite(number) ? `${Math.round(number)}${suffix}` : '—';
   }
 
   function direction(value) {
+    if (value === null || value === undefined || value === '') return '—';
     const number = Number(value);
     return Number.isFinite(number)
       ? ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(number / 45) % 8]
@@ -107,6 +109,22 @@
     }
     element(document, practiceCard, 'p', 'small', 'Water workouts go live at 5:00 AM Eastern. Land workouts go live at 6:01 AM Eastern.');
   }
+
+  renderAthleteView.showMessage = function showMessage(view, eyebrow, title, message, actionLabel, action) {
+    const document = view.ownerDocument;
+    view.replaceChildren();
+    const card = element(document, view, 'section', 'card', null);
+    card.setAttribute?.('role', 'status');
+    element(document, card, 'div', 'ey', eyebrow || 'ATHLETE VIEW');
+    element(document, card, 'div', 'title', title);
+    element(document, card, 'p', '', message);
+    if (actionLabel && action) {
+      const button = element(document, card, 'button', 'secondary', actionLabel);
+      button.type = 'button';
+      button.addEventListener?.('click', action);
+      if (!button.addEventListener) button.onclick = action;
+    }
+  };
 
   return renderAthleteView;
 });

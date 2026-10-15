@@ -35,6 +35,12 @@ function target(name) {
     throw new Error(`Refusing integration checks against a production host: ${url.hostname}`);
   }
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error(`${name} must use HTTP or HTTPS.`);
+  // No hosted target has passed the independent isolation review. In particular,
+  // the PR preview currently shares its Blob binding with production.
+  // Expand this gate only alongside a reviewed, resource-specific isolation record.
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase())) {
+    throw new Error('Refusing integration checks: no hosted target has verified isolation. Use the synthetic loopback fixture.');
+  }
   return url.origin;
 }
 

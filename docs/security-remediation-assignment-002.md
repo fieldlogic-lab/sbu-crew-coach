@@ -1,5 +1,7 @@
 # Assignment 002 — Security Remediation Record
 
+Historical implementation record. See [Assignment 003 release readiness](release-readiness-assignment-003.md) for subsequent corrections, independently inspected staging configuration, current test evidence and release blockers.
+
 **Target:** `fieldlogic-lab/sbu-crew-coach`, baseline `f568606b6ef9241e20ff60f430ae51586792e502` (2026-10-06).  
 **Disposition:** prepared for pull request review. No merge, deploy, production secret change, or live-data operation was performed.
 

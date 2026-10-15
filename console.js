@@ -151,6 +151,9 @@ async function load(){
   return true;
 }
 async function save(publish=false){
+  const controls=[...document.querySelectorAll('#console input,#console textarea,#console select,#console button,#save,#publish,#logout')];
+  const disabled=controls.map(control=>control.disabled);
+  controls.forEach(control=>{control.disabled=true});
   setStatus(publish?'Publishing…':'Saving…');
   try{
     state.seasons[state.plan.season]=state.plan;
@@ -166,15 +169,26 @@ async function save(publish=false){
       return;
     }
     if(r.status===401){await load();return}
-    if(!r.ok)throw Error();
+    if(!r.ok){
+      const result=await r.json().catch(()=>({}));
+      if(result.draftSaved){
+        draftETag=r.headers.get('etag')||draftETag;
+        setStatus('Draft saved · publication not confirmed');
+        $('#download-recovery').hidden=false;
+        alert('Your draft was saved, but publication could not be confirmed. Check the athlete view before retrying. Your edits remain available for download.');
+        return;
+      }
+      throw Error();
+    }
     draftETag=r.headers.get('etag')||draftETag;
     $('#download-recovery').hidden=true;
     Object.assign(state,await r.json());
     state.teamOps=mergeTeamOps(state.teamOps);
     state.dirty=false;
     setStatus(publish?'Published':'Draft saved');
-    renderHistory();
-  }catch{setStatus('Save failed — edits retained');alert('The save failed. Your edits are still on this page; check your connection and try again.')}
+    renderAll();
+  }catch{$('#download-recovery').hidden=false;setStatus('Save failed — edits retained');alert('The save failed. Your edits are still on this page; download a recovery copy before leaving or retrying.')}
+  finally{controls.forEach((control,index)=>{control.disabled=disabled[index]})}
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!==t.dataset.panel)});
 $('#add-session').onclick=()=>{state.plan.sessions.push({date:'',title:'New session',block:'',intent:'',workout:'',cue:'',land:'',custom:{todayMessage:'',novicePlan:'',varsityPlan:'',landFallback:'',technicalFocus:'',coachingCues:'',successCriteria:'',intensity:''}});renderSessions();setDirty()};
@@ -185,7 +199,7 @@ $('#publish').onclick=()=>save(true);
 $('#download-recovery').onclick=()=>{
   const payload={savedAt:new Date().toISOString(),plan:state.plan,seasons:state.seasons,content:state.content,controls:state.controls,teamOps:state.teamOps,history:state.history};
   const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
-  const link=document.createElement('a');link.href=url;link.download=`coach-draft-recovery-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;link.click();URL.revokeObjectURL(url);
+  const link=document.createElement('a');link.href=url;link.download=`coach-draft-recovery-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
 };
 $('#login-form').addEventListener('submit',async event=>{
   event.preventDefault();$('#login-error').textContent='';
@@ -197,7 +211,14 @@ $('#login-form').addEventListener('submit',async event=>{
   }catch(error){$('#login-error').textContent=error.message||'Sign in failed.'}
 });
 $('#logout').onclick=async()=>{
-  await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'logout'})}).catch(()=>{});
+  if(state.dirty){
+    $('#download-recovery').hidden=false;
+    if(!confirm('Sign out and discard unsaved edits? Choose Cancel to save or download a recovery copy first.'))return;
+  }
+  try{
+    const response=await fetch('/api/console',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'logout'})});
+    if(!response.ok)throw Error();
+  }catch{setStatus('Sign out failed · still signed in');return}
   state.dirty=false;draftETag='';$('#console').hidden=true;$('#login-panel').hidden=false;$('#logout').hidden=true;$('#save').hidden=true;$('#publish').hidden=true;setStatus('Signed out');
 };
 (async()=>{try{await load()}catch(error){$('#access-error-message').textContent=error.message||'Coach console is unavailable.';$('#access-error').hidden=false;setStatus('Unavailable')}})();
