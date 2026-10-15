@@ -26,7 +26,7 @@ The project is a candidate, not a usable staging target yet. No preview/staging 
 
 ### Executive Owner actions needed before deployment
 
-1. Confirm `sbu-crew-coach-test` is the approved project and authorize its use for acceptance testing. In Vercel project settings, confirm its Git repository is `fieldlogic-lab/sbu-crew-coach`, attach the reviewed PR #12 head SHA `91e0f533e430e37ab79a25bbf56f633545e44444`, and confirm the resulting deployment is in that project. No deploy was issued because the inspected project is unconfigured and not linked to the reviewed revision.
+1. Confirm `sbu-crew-coach-test` is the approved project and authorize its use for acceptance testing. In Vercel project settings, confirm its Git repository is `fieldlogic-lab/sbu-crew-coach`, attach the reviewed PR #12 head SHA `8325f5a6a5ae37540a46244a8e6c571d0c0a5ef0`, and confirm the resulting deployment is in that project. No deploy was issued because the inspected project is unconfigured and not linked to the reviewed revision.
 2. Approve creation/use of a dedicated private Vercel Blob store for this staging project. Confirm its store ID differs from production and that only staging has its read/write token. Seed synthetic records only after the identity check.
 3. Approve a dedicated Redis/Upstash database and scoped REST token for staging. Set the variables listed above only in the test project.
 4. Provision independent synthetic coach username/password/session secret, `ATTENDANCE_SYNC_TOKEN`, and `CRON_SECRET`. Keep OAuth credentials separate. Do not copy production OAuth tokens, Blob tokens, coach secrets, athlete data, or attendance records.
