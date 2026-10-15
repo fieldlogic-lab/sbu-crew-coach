@@ -2,7 +2,7 @@
 
 Date: 2026-10-15. PR: [#12](https://github.com/fieldlogic-lab/sbu-crew-coach/pull/12). Reviewed starting revision: `91e0f533e430e37ab79a25bbf56f633545e44444`.
 
-**Release verdict: BLOCKED.** The test project has a private Blob store and separate Upstash Redis, and a READY, SSO-protected Preview deployment in `iad1` was built from application revision `28e2f6f89b95d775a85c3aee436ac30f21182605` (`target: null`, Preview). Synthetic coach credentials are scoped to the test project's Preview environment only. Submitting a synthetic login attempt again showed `console unavailable`. Vercel runtime-error queries returned no diagnostic entries; the underlying exception is unknown. Successful authentication and hosted rate-limit enforcement/recovery remain unverified. No production deployment or production data access occurred. No production deployment, merge, or production data access was performed.
+**Release verdict: BLOCKED.** At the time of Assignment 004, isolated Preview revision `28e2f6f89b95d775a85c3aee436ac30f21182605` returned `console unavailable` despite Preview-only synthetic coach credentials, and runtime queries showed no diagnostic entries. Assignment 005 below confirms and corrects the source-level cause. Post-fix hosted login and the remaining acceptance checks are still pending. No production deployment, merge, or production data access occurred.
 
 ## Authentication throttling
 
@@ -69,7 +69,7 @@ The intended source-of-truth model documented in `docs/DAILY_PLAN_SYNC.md` is th
 
 The new code removes the known process-local-throttling risk by requiring an external atomic shared counter and includes a bounded account-wide failed-attempt bucket to limit distributed guessing. Synthetic suite: **PASS, 50/50**. Independent review found no critical issue; review resulted in the additional account bucket and expanded provider-failure tests. [Vercel's request-header documentation](https://vercel.com/docs/headers/request-headers) says it overwrites `x-forwarded-for` by default to prevent IP spoofing; the limiter uses that header's first address. Confirm any project proxy/header customization preserves that guarantee during hosted acceptance. Hosted Redis Lua execution and rate-limit/recovery behavior remain unverified until the updated staging deployment and independent coach identity are configured. Existing signed sessions remain stateless until expiry or signing-secret rotation, as recorded in Assignment 003.
 
-**Recommendation:** do not release to production. Finish independent staging credentials and isolated integration setup, complete hosted synthetic-service tests and physical-device checks, and obtain final Executive Owner acceptance before any later production decision. Do not merge or deploy to production as part of this assignment.
+**Recommendation:** do not release to production. Complete the remaining hosted synthetic-service tests and physical-device checks, review and rotate the temporary Preview-only coach credentials before acceptance, and obtain final Executive Owner approval before any later production decision. The synthetic Google integration and workbook remain unconfigured. Do not merge or deploy to production as part of this assignment.
 
 
 ## Assignment 005 — Authentication failure follow-up
