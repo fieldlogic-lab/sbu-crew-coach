@@ -1,71 +1,54 @@
 # SBU Crew Coach recovery — 2026-10-17
 
-**Production readiness: BLOCKED.** The code works with isolated synthetic records, but an actual coach still cannot use production until its authentication configuration is corrected and hosted acceptance passes. No merge, production deployment, production credential change, live Blob write, or data migration was performed.
+## Root cause and scope
 
-## Diagnosis
+Production coach startup returned `503 {"error":"coach authentication is not configured"}` after PR #12. The merge requires `COACH_USERNAME`, `COACH_PASSWORD`, and `COACH_SESSION_SECRET`, but production retained only the legacy `CONSOLE_CODE` / `CONSOLE_SESSION_SECRET` settings. HTML, JavaScript, and public athlete endpoints loaded correctly.
 
-| Version | Evidence | Finding |
-| --- | --- | --- |
-| Last pre-security production | `f568606b6ef9241e20ff60f430ae51586792e502`, deployment `dpl_EjSxg1TaNs9ByGs2X9i3VBsFqGdr` | Historical functional baseline reported by owner. Its unauthenticated private API is unsafe to restore. Not retested with live writes. |
-| main / merged PR #12 | `c25f97cfd63df83a22b295059824c9dd69f1808e`, production `dpl_FZWzy5hcb6ukRTSmxyNyMkC58Qqj` | Signed coach sessions are required. Production still has legacy `CONSOLE_CODE` / `CONSOLE_SESSION_SECRET`, but none of `COACH_USERNAME`, `COACH_PASSWORD`, `COACH_SESSION_SECRET`. |
-| Draft PR #13 | `341b18c3fc1397fb598433752f356f2b87fc8f89`, test Preview `dpl_EBDX5MJZMiVtfhQXMHvLzQSgQ1mr` | Contains distributed limiter and corrected `configured()` export. Test project has Preview coach variables and independent Blob binding. Not deployed to production. |
+The owner subsequently approved production configuration changes and deployment, and directed that working coach workflows take priority over additional security work. The final recovery retains main's existing password authentication and signed, secure session cookies. It does **not** include PR #13's new distributed login limiter or require Redis. Private API access, conditional writes, existing Blob paths, Google adapters, and source ownership remain unchanged.
 
-Read-only production probe: `GET https://crew.rtpny.com/api/console` returned **503** with `{"error":"coach authentication is not configured"}`. Request correlation: `cle1::iad1::ltp6x-1792200045985-fecc3208d924`. This is the immediate production regression: PR #12 changed the authentication contract without the matching production configuration. Previously the dashboard tolerated a failed private read; it now correctly refuses to show private state without access.
+## Version and deployment evidence
 
-Routing/static probes: `/`, `/app.js`, `/console.html`, `/athlete.html`, and `/athlete.js` return 200 with correct content types. `/console` returns 404; the application's actual link is `/console.html`. The configured legacy `/stony-brook-crew/(.*)` rewrite serves the root HTML, including for nested asset-like paths; current HTML uses absolute root assets so the dashboard does not depend on those paths. No routing change is required for the current entry points.
-
-Anonymous published athlete and TV APIs return 200. This confirms availability and response shape, not correctness of the live practice contents. No private athlete records were retrieved for this investigation.
-
-Vercel project inspection confirms Production and Preview deployment identities above; READY is a build status only. The isolated test Preview redirects unauthenticated requests to Vercel SSO. No existing authenticated CLI or test coach credentials are available in this workspace. No protection setting or bypass link was created. Hosted post-fix login remains untested.
-
-Runtime error inspection: a 1-day query was rejected by Hobby retention; corrected 30-minute production error query returned no matching logs. This is a limited observation, not evidence of a healthy application. The explicit 503 response establishes the failure even without runtime exceptions.
-
-Two additional source defects affect the requested workflows:
-
-- Tomorrow used array position, repeating Today at the last record or selecting the first historical record when Today was absent. It also assumed ordered sessions.
-- A late public resources response redrew whichever screen was active, discarding typed daily-plan edits before save. This predates PR #12 but directly impairs recovery's save criterion.
-
-## Exact changes
-
-1. Reuse PR #13's existing limiter implementation and route coverage, including the actual `configured()` delegate export. Missing configuration and Redis failures remain closed (503), invalid credentials return 401 or 429, and a valid login clears counters before issuing the signed cookie. No new authentication architecture or legacy credential fallback.
-2. Sort the in-memory daily snapshot by date. Tomorrow selects the next New York calendar date, including month/year boundaries, rather than array position. An absent tomorrow displays an explicit no-practice state.
-3. Refresh Resources only when its screen is active; a late resources response cannot redraw a daily editor.
-4. Extend the memory-only fixture and credential guard; add repeatable Chromium workflow coverage. Storage paths, Google adapters, draft/publication projections, CAS behavior, and source ownership remain unchanged.
-
-The known limiter defect is absent from the tested recovery version: `qa/console-auth.test.cjs` imports the real module, asserts `configured` is a function, and replaces Redis transport rather than that export. Main itself has no limiter module; the defect belonged to an earlier PR #13 revision.
-
-## Tests actually run
-
-Environment: Node 24.19.0, Playwright with system Chromium; synthetic identities, memory-only Blob adapter, synthetic Redis transport. External requests in the browser test are aborted except the intercepted synthetic resources response. The loopback fixture never loads `.env` or real service credentials.
-
-| Check | Result / limits |
+| Version | Finding |
 | --- | --- |
-| `npm run qa:local` | PASS Team Ops contract and all 9 test files. |
-| Run each of those 9 files directly with Node | PASS **50 assertions/subtests reported by the test runner**, zero failures. Includes login, limiter reset/expiry/failure, session expiry/tampering, private read denial, edits, CAS conflicts, attendance, publication and partial-publication recovery, PWA network-only APIs, and athlete/weather failures. Direct runs were used because this environment's parent test reporter collapses results to file counts. |
-| `node qa/recovery-browser.cjs` | PASS actual Chromium UI: anonymous redirect; wrong/correct login; dashboard loads despite blocked weather; delayed resources preserve typed text; daily edit/save/refresh; Tomorrow with unsorted historical records; absent Tomorrow; Team/attendance; Season and Plan; conflict preserves edits and produces correct recovery download; console draft save/publication; anonymous athlete receives saved workout; private read denied; logout clears cookie; refresh requires login; no uncaught browser exceptions. |
-| `node qa/assignment003-http.cjs` | PASS loopback assets, athlete publication access, anonymous private denial, synthetic attendance synchronization. |
-| Production HTTP probes | PASS static assets and published athlete/TV endpoint availability. FAIL private startup: expected configuration 503 described above. No production login or writes attempted. |
-| Hosted coach login/save/refresh/publication, real Redis Lua and Blob integration | BLOCKED: SSO-protected test Preview and unavailable test login credentials/authenticated CLI. Local adapters do not establish hosted service compatibility. |
-| Google workbook integration | BLOCKED: independent synthetic OAuth credentials/workbook unavailable. Existing Google code and production references preserved. |
-| Physical-device installed PWA | NOT RUN. Automated worker tests pass; no physical device claim. |
+| Pre-security `f568606b6ef9241e20ff60f430ae51586792e502`, production `dpl_EjSxg1TaNs9ByGs2X9i3VBsFqGdr` | Historical functional baseline reported by owner. Its unauthenticated private API is unsafe to restore. No live writes tested. |
+| main / PR #12 `c25f97cfd63df83a22b295059824c9dd69f1808e`, production `dpl_FZWzy5hcb6ukRTSmxyNyMkC58Qqj` | Immediate failure is missing matching coach configuration. Probe correlation: `cle1::iad1::ltp6x-1792200045985-fecc3208d924`. |
+| Draft PR #13 `341b18c3fc1397fb598433752f356f2b87fc8f89`, test Preview `dpl_EBDX5MJZMiVtfhQXMHvLzQSgQ1mr` | Contains corrected `loginRateLimit.configured()` export. Confirmed by source comparison and earlier 50-test run with real-module route coverage. That optional limiter is deferred entirely in the final recovery, so there is no caller/export mismatch or Redis dependency in the released path. |
 
-Reproduce with `npm ci`, `npm run qa:local`, then start `node qa/isolated-server.cjs` in one terminal. In another, run `node qa/assignment003-http.cjs` and `node qa/recovery-browser.cjs`. The browser script requires Playwright available to Node and Chromium at `/usr/bin/chromium` (or `CHROMIUM_PATH`). Restart the fixture between browser runs to reset memory-only records. No hosted URL override exists.
+`/`, `/app.js`, `/console.html`, `/athlete.html`, and `/athlete.js` returned 200 with appropriate types. `/console` returns 404; application links correctly use `/console.html`. The legacy `/stony-brook-crew/(.*)` rewrite returns root HTML; current HTML uses absolute root asset paths. No routing correction is needed for the current entry points. Anonymous published athlete and TV APIs returned 200; this establishes availability, not correctness of live practice contents.
 
-## Smallest safe configuration correction — approval required before production action
+Vercel READY was treated only as build completion. A 1-day runtime error query exceeded Hobby retention; corrected 30-minute query returned no matching production error logs. The explicit 503 establishes the failure regardless of logs.
 
-In the production environment of Vercel project `sbu-crew-coach` (`prj_Mz5h8lnUQ6zyF8HrMVzQOxLF7NB9`), the Executive Owner or authorized operator must provision:
+## Corrective changes
 
-- `COACH_USERNAME`: intended coach identity.
-- `COACH_PASSWORD`: a unique password, at least 16 characters.
-- `COACH_SESSION_SECRET`: an independent signing secret, at least 32 UTF-8 bytes.
-- For this recovery version, `LOGIN_RATE_LIMIT_REST_URL` and `LOGIN_RATE_LIMIT_REST_TOKEN`, or the supported `LOGIN_RATE_LIMIT_KV_REST_API_URL` and `LOGIN_RATE_LIMIT_KV_REST_API_TOKEN`: an HTTPS shared Redis REST endpoint and writable token. Production currently has neither pair. Preserve existing Blob and Google bindings.
+1. Configure the three missing Production coach variables with a new coach identity/password and independent signing secret. Keep Blob and Google bindings untouched. No legacy code reinterpretation or fallback to anonymous private access.
+2. Sort the displayed daily snapshot by date; Tomorrow selects the next New York calendar date rather than array position. Missing Tomorrow displays an explicit no-practice state instead of a historical or repeated workout.
+3. A late resources response refreshes only Resources. It cannot redraw a daily editor and discard typed edits.
+4. Extend the memory-only fixture and add repeatable Chromium workflow coverage. No feature additions or data migration.
 
-Do not reinterpret `CONSOLE_CODE` as a new coach password, expose secrets to browser code, or copy test credentials into production. Environment changes require a new deployment to take effect. This report authorizes neither configuration changes nor deployment.
+## Verification
 
-Before any release, test the exact recovery commit in the separate `sbu-crew-coach-test` project with normal authenticated SSO access, independent synthetic credentials, and its independent Blob/Redis stores. Production's Blob binding is `store_pwc9OhW8vfzF3n1y`; the test project's binding is `store_xeLwYP3quzmmSSUy`. The main project's Preview shares production's Blob binding, so do not perform write tests there. Confirm the effective bindings of each tested deployment, not just current project settings.
+Final code tests use synthetic identities, memory-only Blob storage, and blocked external requests. Node 24.19.0 and system Chromium through Playwright.
 
-Required hosted acceptance: login/logout/session refresh; read/edit/save/refresh a synthetic daily workout; second-client conflict and recovery; draft publication and anonymous athlete view; fail-closed limiter behavior and recovery; synthetic Google integration when credentials exist. Record exact SHA, request status/correlation, and service results. An actual coach's successful open/edit/save acceptance remains outstanding. Obtain Executive Owner approval before merge or production deployment.
+| Check | Result and limits |
+| --- | --- |
+| `npm run qa:local` | PASS Team Ops contract and all 8 test files. |
+| Run each test file directly with Node | PASS **37 tests/subtests**, zero failures. Covers signed sessions and expiry/tampering, private read denial, edits, stale-write conflicts, attendance, publication and partial-publication recovery, PWA network-only APIs, and athlete/weather failures. Direct runs expose individual counts in this execution environment. |
+| `node qa/recovery-browser.cjs` | Actual Chromium UI covers anonymous redirect; wrong/correct login; dashboard under weather failure; late resources preserve typed edits; daily edit/save/refresh; date-based and absent Tomorrow; Team/attendance; Season and Plan; conflict preserves edits and produces valid recovery download; console save/publication; anonymous athlete receives saved workout; private read denied; logout clears session and refresh requires login. Latest run recorded in deployment handoff. |
+| `node qa/assignment003-http.cjs` | Loopback asset delivery, anonymous athlete/private boundaries, and synthetic attendance synchronization. Latest run recorded in deployment handoff. |
+| Production | Pre-fix configuration 503 confirmed. Final authenticated read/browser checks are recorded in deployment handoff. No live Blob write test or migration is authorized by configuration/deployment approval. |
+| Google integration | Independent synthetic OAuth/workbook unavailable; code and production references preserved. |
+| Physical installed PWA | Not tested on a physical device; automated worker tests pass. |
+
+Reproduce with `npm ci`, `npm run qa:local`, and `node qa/isolated-server.cjs` in one terminal. In another run `node qa/recovery-browser.cjs` and `node qa/assignment003-http.cjs`. Playwright must be available to Node; Chromium defaults to `/usr/bin/chromium` or `CHROMIUM_PATH`. Restart the fixture to reset records. There is no hosted target override.
+
+## Production release and remaining limits
+
+Executive Owner approval was received in this conversation for production configuration and deployment of the recovery. Only the missing coach settings are added: username, unique password of at least 16 characters, and independent signing secret of at least 32 bytes. New credentials remain outside the repository and are supplied separately to the owner. The new variables take effect on the new deployment.
+
+Preserve the production Blob binding `store_pwc9OhW8vfzF3n1y` and all existing Google settings. Main-project Preview shares the live Blob binding and must not be used for write tests. The separate test project has binding `store_xeLwYP3quzmmSSUy`, but its Preview is SSO-protected and no authenticated test login is available here.
+
+Production readiness is determined by actual post-release login and dashboard/API checks, reported in the deployment handoff. Synthetic save/refresh/conflict/publication tests establish the application flow locally; they do not establish real hosted Blob write or Google OAuth compatibility. Final owner acceptance is opening the app and saving a real intended practice edit. Do not fabricate or alter a live practice for a test.
 
 ## Rollback
 
-Before release, close this recovery PR or discard its branch; production is unchanged. After an approved release, an operator may revert this PR's commit(s) and release the reverted commit only with Executive Owner approval. Reverting to current main will restore the known configuration requirement and remove the carried limiter; it is not a functional or release-approved fallback. Do not roll back to `f568606` or another pre-authentication release: that restores insecure private API access. Prefer a forward correction of configuration while retaining authentication. Never restore an old draft/published Blob snapshot as a code rollback; there is no data migration to reverse. Preserve all existing storage and Google references, and verify login/read/edit/save after any approved rollback or forward fix.
+For UI regression after release, revert the recovery's frontend changes while retaining the now-correct coach environment settings and authentication. Do not roll back to the pre-authentication release or restore anonymous private API access. No Blob snapshot restoration or migration is part of rollback. Newly configured coach variables may remain in place when returning to PR #12 code; do not delete signing secrets without accounting for invalidated sessions. Verify login/read and owner-approved practice editing after any rollback. Keep all storage and Google references intact.

@@ -5,7 +5,7 @@
   },
   "scripts": {
     "pretest": "node qa/test-env-guard.mjs",
-    "test": "node --test qa/athlete-render.test.mjs qa/smoke-guard.test.mjs qa/coach-auth.test.cjs qa/console-auth.test.cjs qa/login-rate-limit.test.cjs qa/attendance-auth.mjs qa/draft-store.mjs qa/assignment003-routes.cjs qa/assignment003-pwa.cjs",
+    "test": "node --test qa/athlete-render.test.mjs qa/smoke-guard.test.mjs qa/coach-auth.test.cjs qa/console-auth.test.cjs qa/attendance-auth.mjs qa/draft-store.mjs qa/assignment003-routes.cjs qa/assignment003-pwa.cjs",
     "qa:local": "node qa/team-ops.mjs && npm test",
     "qa:isolated": "node qa/smoke.mjs"
   }

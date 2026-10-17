@@ -7,10 +7,6 @@ process.env.COACH_SESSION_SECRET = 'synthetic-signing-secret-with-more-than-thir
 process.env.ATTENDANCE_SYNC_TOKEN = 'synthetic-attendance-token';
 
 const store = require('../api/lib/draft-store');
-const loginRateLimit = require('../api/lib/login-rate-limit');
-loginRateLimit.configured = () => true;
-loginRateLimit.consume = async () => ({ allowed: true, remaining: 4 });
-loginRateLimit.reset = async () => {};
 const googleAttendancePath = require.resolve('../api/lib/google-attendance');
 let draft;
 let draftVersion;

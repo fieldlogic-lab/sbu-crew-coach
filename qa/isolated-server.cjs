@@ -9,24 +9,7 @@ async function main() {
   process.env.COACH_PASSWORD = 'synthetic-coach-password';
   process.env.COACH_SESSION_SECRET = 'synthetic-local-session-secret-more-than-32-bytes';
   process.env.ATTENDANCE_SYNC_TOKEN = 'synthetic-attendance-token';
-  process.env.LOGIN_RATE_LIMIT_REST_URL = 'https://redis.synthetic.test';
-  process.env.LOGIN_RATE_LIMIT_REST_TOKEN = 'synthetic-redis-token';
-  const counters = new Map();
-  global.fetch = async (url, request) => {
-    if (url !== process.env.LOGIN_RATE_LIMIT_REST_URL) throw new Error('External requests disabled in the local fixture');
-    const [op, ...parts] = JSON.parse(request.body);
-    if (op === 'DEL') {
-      parts.forEach(key => counters.delete(key));
-      return { ok: true, json: async () => ({ result: 1 }) };
-    }
-    if (op !== 'EVAL') throw new Error('Unexpected synthetic Redis command');
-    const keys = parts.slice(2, 2 + Number(parts[1]));
-    return { ok: true, json: async () => ({ result: keys.map(key => {
-      const count = (counters.get(key) || 0) + 1;
-      counters.set(key, count);
-      return count;
-    }) }) };
-  };
+  global.fetch = async () => { throw new Error('External requests disabled in the local fixture'); };
 
   const records = new Map();
   let version = 0;
