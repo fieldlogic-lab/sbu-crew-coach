@@ -34,7 +34,7 @@ let manifest={resources:fallback.map(x=>({title:x[0],summary:x[1],path:'#'+x[2]}
 let active='today';
 let weatherRequest=0;
 
-function normalize(items){return (items||[]).map(s=>[s.date,s.title,s.workout||'',s.intent,s.sessionType||'land',s.releaseTimes||{water:'05:00',land:'06:01'},s])}
+function normalize(items){return (items||[]).map(s=>[s.date,s.title,s.workout||'',s.intent,s.sessionType||'land',s.releaseTimes||{water:'05:00',land:'06:01'},s]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])))}
 function hydratePlans(){
   // The phone dashboard renders only a trusted cached snapshot from the private
   // planning source. Repository-era sessions are intentionally not used as live
@@ -51,6 +51,7 @@ function hydratePlans(){
 hydratePlans();
 
 function nyDate(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date())}
+function tomorrowDate(){const d=new Date(nyDate()+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10)}
 function current(){const d=nyDate();return plans.find(x=>x[0]===d)||null}
 function nextScheduled(){const d=nyDate();return plans.find(x=>x[0]>d)||null}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -107,9 +108,9 @@ function renderResources(){
 function render(v=active){
   active=v;
   const seasonPicker=(v==='season'||v==='plan')&&Object.keys(seasonPlans).length?'<div class="section"><label for="season-choice"><h3>SEASON</h3></label><select id="season-choice" class="season-choice">'+Object.keys(seasonPlans).map(k=>'<option>'+esc(k)+'</option>').join('')+'</select></div>':'';
-  const today=current(),next=nextScheduled(),i=today?plans.findIndex(x=>x[0]===today[0]):-1,p=v==='tomorrow'?plans[i>=0?Math.min(i+1,plans.length-1):0]:today;
+  const today=current(),next=nextScheduled(),p=v==='tomorrow'?plans.find(x=>x[0]===tomorrowDate()):today;
   const emptyToday=renderNoPractice({ next, esc });
-  const h=v==='today'&&!p?emptyToday+teamStatusCard():v==='today'?card(p)+teamStatusCard():v==='tomorrow'?card(p):v==='team'?renderTeam():v==='lineups'?renderLineups():v==='season'?renderSeason():v==='plan'?renderPlan():renderResources();
+  const h=v==='today'&&!p?emptyToday+teamStatusCard():v==='today'?card(p)+teamStatusCard():v==='tomorrow'?(p?card(p):renderNoPractice({ next:plans.find(x=>x[0]>tomorrowDate()), esc, day:'tomorrow' })):v==='team'?renderTeam():v==='lineups'?renderLineups():v==='season'?renderSeason():v==='plan'?renderPlan():renderResources();
   document.getElementById('view').innerHTML=seasonPicker+h;
   const seasonChoice=document.getElementById('season-choice');
   if(seasonChoice){seasonChoice.value=selectedSeason;seasonChoice.onchange=()=>{selectedSeason=seasonChoice.value;plans=seasonPlans[selectedSeason]||plans;render(active)}}
@@ -221,7 +222,7 @@ async function weather(v, request) {
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>render(b.dataset.v));
 document.querySelector('.edit').onclick=()=>{render('today');document.querySelector('.note')?.focus()};
 render();
-fetch(MANIFEST).then(r=>r.json()).then(x=>{if(x.resources?.length){manifest=x;render(active)}}).catch(()=>{});
+fetch(MANIFEST).then(r=>r.json()).then(x=>{if(x.resources?.length){manifest=x;if(active==='resources')render(active)}}).catch(()=>{});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 }).catch(()=>{
   const card=document.createElement('section');card.className='card';

@@ -4,8 +4,34 @@ const assert = require('node:assert/strict');
 process.env.COACH_USERNAME = 'synthetic-coach';
 process.env.COACH_PASSWORD = 'synthetic-password';
 process.env.COACH_SESSION_SECRET = 'synthetic-session-secret-with-at-least-thirty-two-bytes';
+process.env.LOGIN_RATE_LIMIT_KV_REST_API_URL = 'https://redis.synthetic.test';
+process.env.LOGIN_RATE_LIMIT_KV_REST_API_TOKEN = 'synthetic-redis-token';
+
+const redisCounters = new Map();
+let limiterStorageUnavailable = false;
+globalThis.fetch = async (_url, request) => {
+  if (limiterStorageUnavailable) throw new Error('synthetic Redis failure with private details');
+  const parts = JSON.parse(request.body);
+  const [operation] = parts;
+  if (operation === 'DEL') {
+    for (const key of parts.slice(1)) redisCounters.delete(key);
+    return { ok: true, json: async () => ({ result: 1 }) };
+  }
+  const [_op, script, keyCount, ...args] = parts;
+  assert.equal(operation, 'EVAL');
+  assert.match(script, /redis\.call\('INCR'/);
+  const keys = args.slice(0, Number(keyCount));
+  const counts = keys.map(key => {
+    const next = (redisCounters.get(key) || 0) + 1;
+    redisCounters.set(key, next);
+    return next;
+  });
+  return { ok: true, json: async () => ({ result: counts }) };
+};
 
 const store = require('../api/lib/draft-store');
+const limiter = require('../api/lib/login-rate-limit');
+assert.equal(typeof limiter.configured, 'function', 'production limiter module must export configured()');
 let draft = { plan: { season: 'Synthetic', sessions: [] }, seasons: {}, content: { resources: [] }, teamOps: { trainingPlan: { sessions: [{ date: '2099-01-01', workout: 'old' }] } }, history: [] };
 let etag = '"draft-v1"';
 let afterDraftWrite;
@@ -45,8 +71,17 @@ test('anonymous private draft reads and writes are denied while athlete reads st
 test('coach login sets signed cookie; authorized draft access works; attendance credential cannot use coach route', async () => {
   const badLogin = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
   assert.equal(badLogin.statusCode, 401);
+  assert.deepEqual(badLogin.json, { error: 'invalid coach credentials' });
+  assert.equal(JSON.stringify(badLogin.json).includes('synthetic-password'), false);
+  assert.equal(redisCounters.size, 3);
+  // A valid login remains available at the limit and clears all shared counters.
+  for (let i = 0; i < limiter.MAX_ATTEMPTS; i++) {
+    const result = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
+    assert.equal(result.statusCode, i === limiter.MAX_ATTEMPTS - 1 ? 429 : 401);
+  }
   const login = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
   assert.equal(login.statusCode, 200);
+  assert.equal(redisCounters.size, 0);
   const cookie = login.headers['set-cookie'].split(';')[0];
   assert.match(login.headers['set-cookie'], /HttpOnly; Secure; SameSite=Strict/);
   const read = await invoke('GET', '/api/console', undefined, { cookie });
@@ -54,6 +89,28 @@ test('coach login sets signed cookie; authorized draft access works; attendance 
   assert.equal(read.headers.etag, etag);
   const service = await invoke('GET', '/api/console', undefined, { cookie, 'x-attendance-sync-token': 'synthetic-token' });
   assert.equal(service.statusCode, 401);
+});
+
+test('login route rejects throttled attempts and fails closed if shared limiter is unavailable', async () => {
+  for (let i = 0; i < limiter.MAX_ATTEMPTS; i++) {
+    await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
+  }
+  const blocked = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
+  assert.equal(blocked.statusCode, 429);
+  assert.equal(blocked.headers['retry-after'], String(limiter.WINDOW_SECONDS));
+  delete process.env.LOGIN_RATE_LIMIT_KV_REST_API_URL;
+  delete process.env.LOGIN_RATE_LIMIT_KV_REST_API_TOKEN;
+  const unavailable = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'synthetic-password' });
+  assert.equal(unavailable.statusCode, 503);
+  assert.deepEqual(unavailable.json, { error: 'distributed login protection is not configured' });
+  process.env.LOGIN_RATE_LIMIT_KV_REST_API_URL = 'https://redis.synthetic.test';
+  process.env.LOGIN_RATE_LIMIT_KV_REST_API_TOKEN = 'synthetic-redis-token';
+  limiterStorageUnavailable = true;
+  const storageFailure = await invoke('POST', '/api/console', { action: 'login', username: 'synthetic-coach', password: 'wrong-password' });
+  assert.equal(storageFailure.statusCode, 503);
+  assert.deepEqual(storageFailure.json, { error: 'login protection is temporarily unavailable' });
+  assert.equal(JSON.stringify(storageFailure.json).includes('private details'), false);
+  limiterStorageUnavailable = false;
 });
 
 test('authorized session updates reject stale edits and accept the current ETag', async () => {

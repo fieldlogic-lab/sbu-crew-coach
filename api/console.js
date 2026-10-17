@@ -3,6 +3,7 @@ const {
   getCoachConfig, safeEqual, createSessionToken, sessionCookie, clearSessionCookie,
   isCoachRequest, hasServiceCredential,
 } = require('./lib/coach-auth');
+const loginRateLimit = require('./lib/login-rate-limit');
 
 function json(res, status, body, headers = {}) {
   res.statusCode = status;
@@ -178,10 +179,24 @@ module.exports = async (req, res) => {
     if (body.action === 'login') {
       const config = getCoachConfig();
       if (!config.configured) return json(res, 503, { error: 'coach authentication is not configured' });
-      if (hasServiceCredential(req) || !safeEqual(body.username || '', config.username) || !safeEqual(body.password || '', config.password)) {
-        return json(res, 401, { error: 'invalid coach credentials' });
+      if (!loginRateLimit.configured()) return json(res, 503, { error: 'distributed login protection is not configured' });
+      if (hasServiceCredential(req)) return json(res, 401, { error: 'invalid coach credentials' });
+      if (safeEqual(body.username || '', config.username) && safeEqual(body.password || '', config.password)) {
+        try {
+          await loginRateLimit.reset(body.username || '', req);
+        } catch {
+          return json(res, 503, { error: 'login protection is temporarily unavailable' });
+        }
+        return json(res, 200, { ok: true }, { 'set-cookie': sessionCookie(createSessionToken(config.username, config.secret)) });
       }
-      return json(res, 200, { ok: true }, { 'set-cookie': sessionCookie(createSessionToken(config.username, config.secret)) });
+      let attempt;
+      try {
+        attempt = await loginRateLimit.consume(body.username || '', req);
+      } catch {
+        return json(res, 503, { error: 'login protection is temporarily unavailable' });
+      }
+      if (!attempt.allowed) return json(res, 429, { error: 'too many login attempts; try again later' }, { 'retry-after': String(loginRateLimit.WINDOW_SECONDS) });
+      return json(res, 401, { error: 'invalid coach credentials' });
     }
     if (body.action === 'logout') {
       return json(res, 200, { ok: true }, { 'set-cookie': clearSessionCookie() });
