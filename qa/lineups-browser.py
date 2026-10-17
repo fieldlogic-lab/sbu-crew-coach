@@ -28,6 +28,15 @@ with sync_playwright() as p:
   page.reload();page.locator('button[data-v=lineups]').click();page.locator('#lineup-date').fill(str(year)+'-01-'+('01' if width==390 else '02'))
   assert page.locator('select[data-boat="1"][data-seat="Bow"]').input_value()=='synthetic-0'
   page.locator('#lineup-approve').click();page.get_by_text('Approved and saved.',exact=True).wait_for()
+  # A cached draft must keep its original version even after another date saves.
+  cached_date=str(year)+'-03-'+('01' if width==390 else '02')
+  other_date=str(year)+'-04-'+('01' if width==390 else '02')
+  page.locator('#lineup-date').fill(cached_date);page.locator('#lineup-add').click()
+  page.locator('#lineup-date').fill(other_date);page.locator('#lineup-add').click()
+  page.locator('#lineup-save').click();page.get_by_text('Draft saved.',exact=True).wait_for()
+  page.locator('#lineup-date').fill(cached_date)
+  page.locator('#lineup-save').click();page.get_by_text('Save conflict.',exact=False).wait_for()
+  assert page.locator('[data-class]').count()==1
   page.locator('#lineup-date').fill(str(year)+'-02-'+('01' if width==390 else '02'))
   page.locator('#lineup-copy-date').select_option(str(year)+'-01-'+('01' if width==390 else '02'));page.locator('#lineup-copy').click()
   assert page.locator('select[data-boat="1"][data-seat="Bow"]').input_value()=='synthetic-0'
@@ -42,6 +51,6 @@ with sync_playwright() as p:
   assert page.locator('select[data-boat="1"][data-seat="Bow"]').input_value()=='synthetic-0'
   page.screenshot(path=f'/workspace/sbu-crew-coach/qa/lineups-{width}.png',full_page=True)
   assert not errors,errors
-  print(json.dumps({'width':width,'multiBoat':True,'duplicateNames':True,'swap':True,'saveReopen':True,'approve':True,'copy':True,'conflictRetainsEdits':True,'networkFailureRetainsEdits':True,'incompleteApprovalRejected':True,'noHorizontalOverflow':True,'pageErrors':errors}))
+  print(json.dumps({'width':width,'multiBoat':True,'duplicateNames':True,'swap':True,'saveReopen':True,'approve':True,'copy':True,'conflictRetainsEdits':True,'cachedDraftVersionProtected':True,'networkFailureRetainsEdits':True,'incompleteApprovalRejected':True,'noHorizontalOverflow':True,'pageErrors':errors}))
   ctx.close()
  browser.close()

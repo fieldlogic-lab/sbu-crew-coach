@@ -13,7 +13,7 @@ export function createLineupBuilder({ getData, getEtag, onSaved, today }) {
     }).map(a => ({ ...a, label: counts.get(a.name) > 1 ? `${a.name} (${a.occurrence})` : a.name }));
   };
   function current() {
-    if (!working.has(date)) working.set(date, { lineup: structuredClone(getData().teamOps?.lineups?.daily?.[date] || { date, status: 'draft', boats: [] }), dirty: false });
+    if (!working.has(date)) working.set(date, { lineup: structuredClone(getData().teamOps?.lineups?.daily?.[date] || { date, status: 'draft', boats: [] }), dirty: false, etag: getEtag() });
     return working.get(date);
   }
   function changed() { current().dirty = true; current().lineup.status = 'draft'; message = 'Unsaved changes'; }
@@ -83,11 +83,11 @@ export function createLineupBuilder({ getData, getEtag, onSaved, today }) {
     if (status === 'approved' && payload.boats.some(b => CLASSES[b.boatClass].some(s => !b.seats[s]))) { message = 'Fill every seat before approval.'; return draw(); }
     busy = true; message = 'Saving…'; draw();
     try {
-      const response = await fetch('/api/console', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'if-match': getEtag() }, body: JSON.stringify({ action: 'save-lineup', lineup: payload }) });
+      const response = await fetch('/api/console', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'if-match': entry.etag }, body: JSON.stringify({ action: 'save-lineup', lineup: payload }) });
       const data = await response.json();
       if (!response.ok) throw Error(response.status === 412 ? 'Save conflict. Your edits remain here. Download them, then reopen the latest saved lineup.' : response.status === 401 ? 'Sign in as Coach again to save. Download your edits first.' : data.error || 'Save failed. Your edits remain here; retry or download them.');
       onSaved(data, response.headers.get('etag'));
-      entry.lineup = structuredClone(data.teamOps.lineups.daily[date]); entry.dirty = false; message = entry.lineup.status === 'approved' ? 'Approved and saved.' : 'Draft saved.';
+      entry.lineup = structuredClone(data.teamOps.lineups.daily[date]); entry.dirty = false; entry.etag = response.headers.get('etag') || ''; message = entry.lineup.status === 'approved' ? 'Approved and saved.' : 'Draft saved.';
     } catch (error) { message = error.message || 'Save failed. Your edits remain here.'; }
     finally { busy = false; draw(); }
   }

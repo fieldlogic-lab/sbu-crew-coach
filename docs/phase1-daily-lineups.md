@@ -23,6 +23,8 @@ Unsaved dates remain in page memory when navigating or changing dates. Closing
 or refreshing the page prompts about unsaved work. Failed saves retain inputs;
 a recovery JSON download is available. After a version conflict, download edits
 before reopening the latest record. There is no automatic overwrite or merge.
+Each open date retains its original record ETag, so saving another date or
+refreshing the shared record cannot silently authorize stale edits.
 No private roster is cached in localStorage or service-worker API responses.
 
 ## Integration audit and identity
