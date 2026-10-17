@@ -36,12 +36,19 @@ async function main() {
     intent: 'Synthetic test plan — no real athlete data', cue: 'Relax the shoulders', sessionType: 'land',
     practiceStatus: 'land', releaseTimes: { water: '00:00', land: '00:00' }, custom: {},
   };
-  const plan = { season: 'Fall 2026', phases: [], sessions: [session] };
+  const adjacent = offset => {
+    const date = new Date(today + 'T12:00:00Z');
+    date.setUTCDate(date.getUTCDate() + offset);
+    return { ...session, date: date.toISOString().slice(0, 10), title: offset < 0 ? 'Synthetic past practice' : 'Synthetic tomorrow practice' };
+  };
+  // Deliberately unsorted, with a past session: Tomorrow must use its date.
+  const sessions = [adjacent(1), adjacent(-1), session];
+  const plan = { season: 'Fall 2026', phases: [], sessions };
   const draft = {
     plan, seasons: { 'Fall 2026': plan }, content: { resources: [] }, controls: {}, history: [],
     teamOps: {
       sources: { dailyTrainingPlan: { kind: 'dailyTrainingPlan', title: 'Synthetic plan', status: 'connected' } },
-      trainingPlan: { sessions: [session] }, attendance: { athletes: [], practiceDates: [] },
+      trainingPlan: { sessions }, attendance: { athletes: [{ name: 'Synthetic Athlete A', level: 'novice', attendance: { [today]: 'present' } }], practiceDates: [today] },
       lineups: { drafts: [] }, seasonArc: { seasons: [] },
     },
   };

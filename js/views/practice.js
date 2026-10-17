@@ -26,8 +26,8 @@ export function renderSessionCard(session, helpers) {
     + '<button class="save" data-save-session="' + escAttr(session[0]) + '">Save Daily Plan edits</button><span class="save-status small" data-save-status="' + escAttr(session[0]) + '"></span></section>';
 }
 
-export function renderNoPractice({ next, esc }) {
-  return '<section class="card"><div class="ey">NO ORGANIZED PRACTICE</div><div class="title">No scheduled workout today.</div><p>'
+export function renderNoPractice({ next, esc, day = 'today' }) {
+  return '<section class="card"><div class="ey">NO ORGANIZED PRACTICE</div><div class="title">No scheduled workout ' + esc(day) + '.</div><p>'
     + (next ? 'Next scheduled: ' + esc(next[0]) + ' · ' + esc(next[1]) + '.' : 'Check the annual schedule or coach notice for the next session.')
     + '</p></section>';
 }
