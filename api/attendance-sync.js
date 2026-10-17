@@ -1,3 +1,4 @@
+const { identifyRoster } = require('./lib/roster');
 const { updateDraft } = require('./lib/draft-store');
 const { authorizedAttendanceRequest } = require('./lib/attendance-auth');
 
@@ -100,7 +101,7 @@ module.exports = async (req, res) => {
     const now = new Date().toISOString();
     const data = await updateDraft(data => {
       data.teamOps = data.teamOps || {};
-      data.teamOps.attendance = { ...(data.teamOps.attendance || {}), athletes, practiceDates };
+      data.teamOps.attendance = { ...(data.teamOps.attendance || {}), athletes: identifyRoster(athletes, data.teamOps.attendance?.athletes || []), practiceDates };
       data.teamOps.sources = data.teamOps.sources || {};
       data.teamOps.sources.attendance = {
         ...(data.teamOps.sources.attendance || {}),
@@ -124,3 +125,4 @@ module.exports = async (req, res) => {
     return send(res, 500, { error: 'attendance sync failed' });
   }
 };
+

@@ -1,7 +1,8 @@
+import { createLineupBuilder } from '/js/lineup-builder.js';
 import { APP, DEFAULT_TEAM_OPS, RESOURCE_FALLBACKS } from '/js/config.js';
 import { getLiveConditions } from '/js/weather.js';
 import { athletesFrom, attendanceWarningFor, eligibilityFor, mergeTeamOps, scheduledPracticeDates as sourcePracticeDates, teamSummaryFor } from '/js/team-ops.js';
-import { renderLineupsView, renderTeamStatus, renderTeamView } from '/js/views/team.js';
+import { renderTeamStatus, renderTeamView } from '/js/views/team.js';
 import { renderNoPractice, renderSessionCard } from '/js/views/practice.js';
 import { renderPlanView, renderSeasonView } from '/js/views/planning.js';
 
@@ -27,6 +28,7 @@ const central=window.__coachData||{};
 const fallback=RESOURCE_FALLBACKS;
 const defaultTeamOps=DEFAULT_TEAM_OPS;
 let teamOps=mergeTeamOps(defaultTeamOps,central.teamOps||{});
+const lineupBuilder=createLineupBuilder({getData:()=>({...central,teamOps}),getEtag:()=>window.__coachEtag||'',onSaved:(data,etag)=>{teamOps=mergeTeamOps(defaultTeamOps,data.teamOps||{});window.__coachEtag=etag||'';hydratePlans()},today:nyDate});
 let plans=[];
 let selectedSeason=APP.defaultSeason;
 let seasonPlans={};
@@ -87,7 +89,7 @@ function renderTeam(){
   });
 }
 function renderLineups(){
-  return renderLineupsView({ drafts: teamOps.lineups?.drafts || [], esc });
+  return '<div id="daily-lineup-builder"></div>';
 }
 function renderSeason(){
   return renderSeasonView({
@@ -112,6 +114,7 @@ function render(v=active){
   const emptyToday=renderNoPractice({ next, esc });
   const h=v==='today'&&!p?emptyToday+teamStatusCard():v==='today'?card(p)+teamStatusCard():v==='tomorrow'?(p?card(p):renderNoPractice({ next:plans.find(x=>x[0]>tomorrowDate()), esc, day:'tomorrow' })):v==='team'?renderTeam():v==='lineups'?renderLineups():v==='season'?renderSeason():v==='plan'?renderPlan():renderResources();
   document.getElementById('view').innerHTML=seasonPicker+h;
+  if(v==='lineups')lineupBuilder.mount(document.getElementById('daily-lineup-builder'));
   const seasonChoice=document.getElementById('season-choice');
   if(seasonChoice){seasonChoice.value=selectedSeason;seasonChoice.onchange=()=>{selectedSeason=seasonChoice.value;plans=seasonPlans[selectedSeason]||plans;render(active)}}
   document.querySelectorAll('nav button').forEach(b=>{const isActive=b.dataset.v===v;b.classList.toggle('active',isActive);b.setAttribute('aria-pressed',String(isActive))});
@@ -231,3 +234,4 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch
   const retry=document.createElement('a');retry.href='/';retry.textContent='Try again';
   card.append(title,message,retry);document.getElementById('view').replaceChildren(card);
 });
+

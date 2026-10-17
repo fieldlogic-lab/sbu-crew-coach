@@ -48,7 +48,7 @@ async function main() {
     plan, seasons: { 'Fall 2026': plan }, content: { resources: [] }, controls: {}, history: [],
     teamOps: {
       sources: { dailyTrainingPlan: { kind: 'dailyTrainingPlan', title: 'Synthetic plan', status: 'connected' } },
-      trainingPlan: { sessions }, attendance: { athletes: [{ name: 'Synthetic Athlete A', level: 'novice', attendance: { [today]: 'present' } }], practiceDates: [today] },
+      trainingPlan: { sessions }, attendance: { athletes: Array.from({length: 20}, (_,i) => ({ id: 'synthetic-'+i, name: i < 2 ? 'Synthetic Duplicate' : 'Synthetic Athlete '+i, level: 'novice', attendedDates: [today] })), practiceDates: [today] },
       lineups: { drafts: [] }, seasonArc: { seasons: [] },
     },
   };
@@ -92,3 +92,4 @@ async function main() {
   server.listen(4173, '127.0.0.1', () => console.log('Synthetic fixture: http://127.0.0.1:4173 — in-memory records, external requests blocked'));
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; });
+
