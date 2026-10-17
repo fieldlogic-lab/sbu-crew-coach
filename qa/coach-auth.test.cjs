@@ -12,6 +12,7 @@ test('configuration fails closed without identity, password, and a 32-byte secre
   assert.equal(auth.getCoachConfig({}).configured, false);
   assert.equal(auth.getCoachConfig({ ...env, COACH_SESSION_SECRET: 'too-short' }).configured, false);
   assert.equal(auth.getCoachConfig({ ...env, COACH_PASSWORD: 'short' }).configured, false);
+  assert.equal(auth.getCoachConfig({ ...env, COACH_PASSWORD: 'demo phrase' }).configured, true);
   assert.equal(auth.getCoachConfig(env).configured, true);
 });
 
