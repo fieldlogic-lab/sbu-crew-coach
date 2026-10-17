@@ -43,3 +43,8 @@
 .weather.marginal{background:#a9823e;color:#fff}
 .weather.poor{background:#a51c2d;color:#fff}
 .weather-detail{margin:0 0 12px;color:rgba(255,255,255,.88);font-size:12px;line-height:1.35}
+
+
+.lineup-builder label{display:grid;gap:6px;margin:12px 0;font-weight:650}.lineup-builder input,.lineup-builder select{width:100%;min-width:0;box-sizing:border-box;min-height:44px;font-size:16px;padding:10px;border:1px solid #a9afb5;border-radius:8px;background:#fff;color:#101820}.lineup-builder button{min-height:44px;padding:10px 12px;margin:4px 0;white-space:normal}.lineup-actions{display:flex;flex-wrap:wrap;gap:8px}.lineup-boat{border-top:1px solid #ccd0d5;margin-top:20px;padding-top:12px}.lineup-seat{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}.lineup-seat button{max-width:110px;margin-bottom:12px}.lineup-seat button[aria-pressed=true]{outline:3px solid #79001a}.lineup-builder p{overflow-wrap:anywhere}.lineup-builder button:disabled{opacity:.5}
+
+.lineup-builder button{font:inherit;font-size:14px;font-weight:650;border:1px solid #a9afb5;border-radius:8px;background:#f3f4f5;color:#101820}.lineup-actions #lineup-save{background:#79001a;border-color:#79001a;color:white}.lineup-builder #lineup-message:empty{display:none}

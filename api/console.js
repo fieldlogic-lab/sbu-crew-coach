@@ -242,6 +242,26 @@ module.exports = async (req, res) => {
       return json(res, 200, updated?.data || data, updated?.etag ? { etag: updated.etag } : {});
     }
 
+    if (body.action === 'save-lineup') {
+      const current = await readDraft();
+      if (!current) return json(res, 404, { error: 'draft not found' });
+      if (!current.etag || req.headers?.['if-match'] !== current.etag) return json(res, 412, { error: 'The saved record changed. Reopen the latest record before saving.', code: 'DRAFT_CONFLICT' });
+      const { validateDailyLineup } = require('./lib/lineups');
+      let daily;
+      try { daily = validateDailyLineup(body.lineup, current.data.teamOps?.attendance?.athletes || []); }
+      catch (error) { if (error.statusCode === 400) return json(res, 400, { error: error.message }); throw error; }
+      const data = current.data;
+      const { lineupRoster } = require('./lib/roster');
+      const identities = lineupRoster(data.teamOps?.attendance?.athletes || []);
+      if (data.teamOps?.attendance?.athletes) data.teamOps.attendance.athletes = data.teamOps.attendance.athletes.map((athlete,index) => ({...athlete,id:identities[index].id}));
+      data.teamOps = data.teamOps || {};
+      data.teamOps.lineups = data.teamOps.lineups || {};
+      data.teamOps.lineups.daily = { ...(data.teamOps.lineups.daily || {}), [daily.date]: daily };
+      await writeDraft(data, { etag: current.etag });
+      const latest = await readDraft();
+      return json(res, 200, latest.data, { etag: latest.etag });
+    }
+
     if (body.action === 'update-session') {
       const current = await readDraft();
       const data = current?.data;
@@ -284,3 +304,4 @@ module.exports = async (req, res) => {
     return json(res, 500, { error: 'console unavailable' });
   }
 };
+

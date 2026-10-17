@@ -1,5 +1,7 @@
 const { readBlob: readVersionedBlob, writeBlob: writeVersionedBlob, updateDraft } = require('./draft-store');
 
+const { identifyRoster } = require('./roster');
+
 const TOKEN_BLOB = 'coach-content/google-oauth.json';
 const DRAFT_BLOB = 'coach-content/draft.json';
 
@@ -129,7 +131,8 @@ async function refreshAttendance() {
   const now = new Date().toISOString();
   const current = await updateDraft(data => {
     data.teamOps = data.teamOps || {};
-    data.teamOps.attendance = { ...(data.teamOps.attendance || {}), athletes, practiceDates };
+    const identified = identifyRoster(athletes, data.teamOps.attendance?.athletes || []);
+    data.teamOps.attendance = { ...(data.teamOps.attendance || {}), athletes: identified, practiceDates };
     data.teamOps.sources = data.teamOps.sources || {};
     data.teamOps.sources.attendance = {
       ...(data.teamOps.sources.attendance || {}), kind: 'attendance', title: '26-27 Attendance',
@@ -153,3 +156,4 @@ module.exports = {
   exchangeCode,
   refreshAttendance,
 };
+

@@ -1,4 +1,5 @@
 {
+  "git": { "deploymentEnabled": { "phase1/daily-lineups": false } },
   "rewrites": [
     { "source": "/stony-brook-crew", "destination": "/" },
     { "source": "/stony-brook-crew/(.*)", "destination": "/" }
