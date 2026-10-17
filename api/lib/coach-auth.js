@@ -11,7 +11,7 @@ function getCoachConfig(env = process.env) {
     username,
     password,
     secret,
-    configured: Boolean(username && password.length >= 16 && Buffer.byteLength(secret, 'utf8') >= 32),
+    configured: Boolean(username && password.length >= 8 && Buffer.byteLength(secret, 'utf8') >= 32),
   };
 }
 
